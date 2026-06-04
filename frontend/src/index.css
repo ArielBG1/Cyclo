@@ -1,0 +1,427 @@
+@import "tailwindcss";
+
+/* Habilitar la variante `dark:` para que funcione con [data-theme="dark"] en <html>
+   (en lugar del default `.dark` de Tailwind). Esto deja usar `dark:bg-...` y
+   `dark:text-...` en cualquier componente y respeta el toggle del ThemeContext. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* ── Paleta Brand — British Racing Green ── */
+  --color-brand-900: #00352F;
+  --color-brand-800: #0B4D43;
+  --color-brand-700: #0F5E52;
+  --color-brand-600: #137C6A;
+  --color-brand-500: #1FAA59;
+  --color-brand-400: #3FC380;
+  --color-brand-100: #E6F4EF;
+  --color-brand-50:  #F4FBF8;
+  --color-accent-gold: #C9A961;
+
+  /* ── Grises ink ── */
+  --color-ink-900: #0E1410;
+  --color-ink-700: #2D3935;
+  --color-ink-500: #6B7872;
+  --color-ink-300: #C7D0CC;
+
+  /* ── Tipografía ── */
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-sans:    'Inter', sans-serif;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Variables semánticas (preparadas para dark mode futuro)
+   ──────────────────────────────────────────────────────────────────────────────
+   Cuando se active dark mode, alcanzará con redefinir estas variables dentro
+   de una clase `.dark` o `[data-theme="dark"]` — los componentes no cambian.
+   Por ahora replican los valores ya usados; la migración es gradual. */
+:root {
+  /* Superficies */
+  --color-bg:           #F4FBF8;
+  --color-surface:      #FFFFFF;
+  --color-surface-alt:  #E6F4EF;
+
+  /* Variantes translúcidas (para overlays y panels con backdrop-blur) */
+  --color-surface-95:   rgba(255, 255, 255, 0.95);
+  --color-surface-85:   rgba(255, 255, 255, 0.85);
+  --color-surface-80:   rgba(255, 255, 255, 0.80);
+
+  /* Texto */
+  --color-text:         #0E1410;
+  --color-text-soft:    #2D3935;
+  --color-text-muted:   #6B7872;
+
+  /* Bordes */
+  --color-border:       #C7D0CC;
+
+  /* Acento de marca */
+  --color-brand:        #1FAA59;
+  --color-brand-hover:  #3FC380;
+  --color-brand-dark:   #00352F;
+  --color-brand-dark-2: #0B4D43;
+
+  /* Feedback (error / warning / success) — para clases .feedback-* */
+  --feedback-error-bg:     #FEF2F2;
+  --feedback-error-border: #FECACA;
+  --feedback-error-text:   #991B1B;
+  --feedback-warning-bg:     #FFFBEB;
+  --feedback-warning-border: #FDE68A;
+  --feedback-warning-text:   #92400E;
+  --feedback-success-bg:     #ECFDF5;
+  --feedback-success-border: #A7F3D0;
+  --feedback-success-text:   #065F46;
+
+  /* Loader overlay del mapa (gradient con alpha) */
+  --map-loader-bg: linear-gradient(180deg, rgba(244, 251, 248, 0.88), rgba(230, 244, 239, 0.94));
+
+  /* Sombras consistentes (3 niveles + glow brand) */
+  --shadow-sm:         0 1px 2px rgba(14, 20, 16, 0.05), 0 1px 3px rgba(14, 20, 16, 0.06);
+  --shadow-md:         0 4px 12px rgba(14, 20, 16, 0.08), 0 2px 4px rgba(14, 20, 16, 0.05);
+  --shadow-lg:         0 12px 32px rgba(14, 20, 16, 0.12), 0 4px 12px rgba(14, 20, 16, 0.06);
+  --shadow-brand-glow: 0 10px 28px rgba(31, 170, 89, 0.40), 0 4px 12px rgba(0, 0, 0, 0.12);
+
+  /* Border-radius — escala consistente */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MODO OSCURO — se activa con [data-theme="dark"] en <html>
+   El componente ThemeContext gestiona el atributo y persiste en localStorage.
+*/
+[data-theme="dark"] {
+  --color-bg:           #0A1311;
+  --color-surface:      #14201C;
+  --color-surface-alt:  #1C2D27;
+
+  --color-surface-95:   rgba(20, 32, 28, 0.95);
+  --color-surface-85:   rgba(20, 32, 28, 0.85);
+  --color-surface-80:   rgba(20, 32, 28, 0.80);
+
+  --color-text:         #E8F0EC;
+  --color-text-soft:    #B8C5BF;
+  --color-text-muted:   #7E8C86;
+
+  --color-border:       #2A3B35;
+
+  --color-brand:        #2DBE6A;
+  --color-brand-hover:  #4FD485;
+  --color-brand-dark:   #0B4D43;
+  --color-brand-dark-2: #0F5E52;
+
+  --feedback-error-bg:     rgba(239, 68, 68, 0.12);
+  --feedback-error-border: rgba(239, 68, 68, 0.40);
+  --feedback-error-text:   #FCA5A5;
+  --feedback-warning-bg:     rgba(245, 158, 11, 0.12);
+  --feedback-warning-border: rgba(245, 158, 11, 0.40);
+  --feedback-warning-text:   #FCD34D;
+  --feedback-success-bg:     rgba(45, 190, 106, 0.14);
+  --feedback-success-border: rgba(45, 190, 106, 0.40);
+  --feedback-success-text:   #86EFAC;
+
+  --map-loader-bg: linear-gradient(180deg, rgba(10, 19, 17, 0.88), rgba(20, 32, 28, 0.94));
+
+  --shadow-sm:         0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.30);
+  --shadow-md:         0 4px 12px rgba(0, 0, 0, 0.50), 0 2px 4px rgba(0, 0, 0, 0.30);
+  --shadow-lg:         0 12px 32px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-brand-glow: 0 10px 28px rgba(45, 190, 106, 0.42), 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Utility classes tematizadas
+   Usalas en componentes en lugar de bg-white / text-ink-* / border-ink-* para
+   que respondan al tema automáticamente.
+*/
+.bg-app          { background-color: var(--color-bg) }
+.bg-surface      { background-color: var(--color-surface) }
+.bg-surface-alt  { background-color: var(--color-surface-alt) }
+.bg-surface-95   { background-color: var(--color-surface-95) }
+.bg-surface-85   { background-color: var(--color-surface-85) }
+.bg-surface-80   { background-color: var(--color-surface-80) }
+.text-main       { color: var(--color-text) }
+.text-soft       { color: var(--color-text-soft) }
+.text-muted      { color: var(--color-text-muted) }
+.border-theme    { border-color: var(--color-border) }
+.placeholder-muted::placeholder { color: var(--color-text-muted); opacity: 1; }
+
+/* Hover surface-alt — útil en items de listas/menus */
+.hover\:bg-surface-alt:hover { background-color: var(--color-surface-alt) }
+.hover\:bg-surface-95:hover  { background-color: var(--color-surface-95) }
+
+/* Cajas de feedback (error / warning / success) — adaptadas al tema */
+.feedback-error,
+.feedback-warning,
+.feedback-success {
+  border-width: 1px;
+  border-style: solid;
+  border-radius: var(--radius-md);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+.feedback-error   { background-color: var(--feedback-error-bg);   border-color: var(--feedback-error-border);   color: var(--feedback-error-text); }
+.feedback-warning { background-color: var(--feedback-warning-bg); border-color: var(--feedback-warning-border); color: var(--feedback-warning-text); }
+.feedback-success { background-color: var(--feedback-success-bg); border-color: var(--feedback-success-border); color: var(--feedback-success-text); }
+
+/* Fondo y tipografía base */
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ── Soporte tipográfico para coreano ──
+   Cuando i18next setea lang="ko" en el <html>, usamos Noto Sans KR como fuente
+   principal con fallback a Inter. Plus Jakarta Sans no tiene buen soporte de Hangul. */
+html[lang="ko"] body,
+html[lang="ko"] button,
+html[lang="ko"] input,
+html[lang="ko"] textarea,
+html[lang="ko"] select {
+  font-family: 'Noto Sans KR', 'Inter', sans-serif;
+}
+html[lang="ko"] .font-display,
+html[lang="ko"] h1,
+html[lang="ko"] h2,
+html[lang="ko"] h3 {
+  font-family: 'Noto Sans KR', 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Transición suave en todos los contenedores tematizados */
+.bg-app,
+.bg-surface,
+.bg-surface-alt,
+.bg-surface-95,
+.bg-surface-85,
+.bg-surface-80,
+.text-main,
+.text-soft,
+.text-muted,
+.border-theme {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* ── Leaflet popup overrides (tematizados) ── */
+.leaflet-popup-content-wrapper {
+  background: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  border-radius: var(--radius-lg) !important;
+  padding: 0 !important;
+  box-shadow: var(--shadow-lg) !important;
+  transition: background-color 0.3s ease, color 0.3s ease !important;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+  min-width: 250px !important;
+}
+.leaflet-popup-tip {
+  background: var(--color-surface) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.10) !important;
+  transition: background-color 0.3s ease !important;
+}
+
+.leaflet-popup-content,
+.leaflet-popup-content * {
+  color: var(--color-text);
+}
+
+.leaflet-popup-content [class*="text-white"] {
+  color: #ffffff !important;
+}
+
+/* ── Tiles del mapa en modo oscuro ──
+   OpenStreetMap es claro por naturaleza; este filtro lo convierte en una
+   versión nocturna razonable. Solo se aplica en dark. */
+[data-theme="dark"] .leaflet-tile {
+  filter: brightness(0.6) invert(1) contrast(0.9) hue-rotate(180deg) saturate(0.7);
+}
+[data-theme="dark"] .leaflet-container {
+  background: #0A1311;
+}
+
+/* ── Zoom controls — debajo del FAB (z-700) y del navbar (z-1000) ── */
+.leaflet-control-zoom {
+  z-index: 500 !important;
+}
+.leaflet-control-zoom a {
+  border-radius: 10px !important;
+  transition: background-color 0.2s ease, transform 0.15s ease !important;
+}
+.leaflet-control-zoom a:hover {
+  transform: scale(1.05);
+}
+
+/* ── Cluster custom icon ── */
+.cluster-custom {
+  background: transparent !important;
+  border: none !important;
+}
+.cluster-custom > div {
+  transition: transform 0.18s ease;
+}
+.cluster-custom:hover > div {
+  transform: scale(1.1);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Animaciones reutilizables
+   ──────────────────────────────────────────────────────────────────────────────
+   Todas SUTILES (200–700 ms). Prefijo `rm-` para evitar choque con Tailwind. */
+
+@keyframes rm-fade-in {
+  from { opacity: 0 }
+  to   { opacity: 1 }
+}
+
+@keyframes rm-slide-up {
+  from { opacity: 0; transform: translateY(10px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes rm-scale-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px) }
+  to   { opacity: 1; transform: scale(1)    translateY(0)   }
+}
+
+@keyframes rm-float-a {
+  0%, 100% { transform: translate(0, 0) }
+  50%      { transform: translate(8px, -10px) }
+}
+@keyframes rm-float-b {
+  0%, 100% { transform: translate(0, 0) }
+  50%      { transform: translate(-10px, 8px) }
+}
+@keyframes rm-float-c {
+  0%, 100% { transform: translate(0, 0) }
+  50%      { transform: translate(6px, 6px) }
+}
+
+@keyframes rm-gentle-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1 }
+  50%      { transform: scale(1.06); opacity: 0.85 }
+}
+
+@keyframes rm-celebrate-pop {
+  0%   { transform: scale(0.55); opacity: 0 }
+  55%  { transform: scale(1.18); opacity: 1 }
+  78%  { transform: scale(0.94) }
+  100% { transform: scale(1)    }
+}
+
+@keyframes rm-pill-pop {
+  0%   { transform: scale(1)    }
+  50%  { transform: scale(1.14) }
+  100% { transform: scale(1)    }
+}
+
+@keyframes rm-shimmer {
+  0%   { transform: translateX(-100%) }
+  100% { transform: translateX(260%)  }
+}
+
+@keyframes rm-spin {
+  to { transform: rotate(360deg) }
+}
+
+/* Utility classes */
+.animate-fade-in      { animation: rm-fade-in       220ms ease-out both; }
+.animate-slide-up     { animation: rm-slide-up      260ms ease-out both; }
+.animate-scale-in     { animation: rm-scale-in      240ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-celebrate    { animation: rm-celebrate-pop 720ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-gentle-pulse { animation: rm-gentle-pulse  2.2s ease-in-out infinite; }
+.animate-pill-pop     { animation: rm-pill-pop      420ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Float — para círculos decorativos del split-screen */
+.animate-float-a { animation: rm-float-a 9s  ease-in-out infinite; }
+.animate-float-b { animation: rm-float-b 11s ease-in-out infinite; }
+.animate-float-c { animation: rm-float-c 7s  ease-in-out infinite; }
+
+/* Barra de progreso indeterminada (para carga del modelo IA) */
+.rm-progress-bar {
+  position: relative;
+  overflow: hidden;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(31, 170, 89, 0.14);
+}
+.rm-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, #1FAA59, transparent);
+  border-radius: 999px;
+  animation: rm-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Link de navbar con subrayado animado desde el centro */
+.rm-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding-bottom: 4px;
+  transition: color 0.2s ease;
+}
+.rm-nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--color-brand-hover);
+  border-radius: 2px;
+  transform: translateX(-50%) scaleX(0);
+  transform-origin: center;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.rm-nav-link:hover::after,
+.rm-nav-link.is-active::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
+/* Doble-anillo spinner — usado en el loader del mapa */
+.rm-double-spinner {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+.rm-double-spinner::before,
+.rm-double-spinner::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 3px solid transparent;
+}
+.rm-double-spinner::before {
+  inset: 0;
+  border-top-color: var(--color-brand);
+  animation: rm-spin 1s linear infinite;
+}
+.rm-double-spinner::after {
+  inset: 8px;
+  border-top-color: var(--color-brand-hover);
+  border-right-color: var(--color-brand-hover);
+  animation: rm-spin 1.4s linear infinite reverse;
+}
+
+/* Respeta la preferencia de accesibilidad */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-scale-in,
+  .animate-celebrate,
+  .animate-gentle-pulse,
+  .animate-pill-pop,
+  .animate-float-a,
+  .animate-float-b,
+  .animate-float-c,
+  .rm-progress-bar::after,
+  .rm-double-spinner::before,
+  .rm-double-spinner::after {
+    animation: none !important;
+  }
+}
