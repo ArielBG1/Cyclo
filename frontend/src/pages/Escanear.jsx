@@ -12,6 +12,11 @@ import { colorContenedor } from '../utils/colorContenedor'
 import { IconoMaterial } from '../utils/iconoMaterial'
 import api from '../services/api'
 
+// Cambiar a true solo para diagnosticar problemas de detección de CycloScan.
+// Cuando está activado se muestra el bloque debug con la imagen procesada,
+// dimensiones y cantidad de objetos detectados.
+const DEBUG_IA = false
+
 export default function Escanear() {
   const { t } = useTranslation()
   const [cargandoModelo, setCargandoModelo] = useState(true)
@@ -272,8 +277,7 @@ export default function Escanear() {
         <div className="text-center max-w-sm animate-fade-in">
           <Bot size={64} className="mx-auto mb-6 text-brand-500 animate-gentle-pulse" strokeWidth={1.5} />
           <h2 className="font-display text-xl font-bold text-main mb-2">
-            {t('escanear.cargandoModeloTitulo')}{' '}
-            <span className="text-muted font-normal text-base">{t('escanear.cargandoModeloTamano')}</span>
+            {t('escanear.cargandoModeloTitulo')}
           </h2>
           <p className="text-muted text-sm leading-relaxed mb-6">
             {t('escanear.cargandoModeloDescripcion')}
@@ -535,8 +539,8 @@ export default function Escanear() {
               </div>
             )}
 
-            {/* Debug: imagen que vio el modelo */}
-            {imagenIA && (
+            {/* Debug: imagen que vio el modelo (oculto al usuario, ver DEBUG_IA arriba) */}
+            {DEBUG_IA && imagenIA && (
               <details className="text-sm">
                 <summary className="cursor-pointer text-muted hover:text-soft select-none py-1 transition-colors inline-flex items-center gap-1.5">
                   <Wrench size={13} />
