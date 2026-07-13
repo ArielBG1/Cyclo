@@ -25,7 +25,10 @@ try {
   client.release()
   console.log('✅ Conectado a PostgreSQL')
 } catch (err) {
-  console.error('❌ Error al conectar a PostgreSQL:', err.message)
+  console.error('❌ Error al conectar a PostgreSQL:', err.message || err)
+  if (err.errors) {
+    for (const e of err.errors) console.error('  causa:', e.message)
+  }
   process.exit(1)
 }
 
