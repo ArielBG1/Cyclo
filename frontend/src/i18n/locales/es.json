@@ -48,7 +48,10 @@
     "errorCamposRequeridos": "Todos los campos son requeridos",
     "errorEmailInvalido": "El email no tiene un formato válido",
     "errorPasswordsNoCoinciden": "Las contraseñas no coinciden",
-    "registroExitoso": "Registro exitoso, iniciá sesión"
+    "errorPasswordCorta": "La contraseña debe tener al menos 6 caracteres",
+    "registroExitoso": "Registro exitoso, iniciá sesión",
+    "mostrarPassword": "Mostrar contraseña",
+    "ocultarPassword": "Ocultar contraseña"
   },
   "mapa": {
     "miUbicacion": "Mi ubicación",

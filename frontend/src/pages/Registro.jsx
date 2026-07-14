@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertCircle, Recycle, Sprout } from 'lucide-react'
+import { AlertCircle, Recycle, Sprout, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api from '../services/api'
 
@@ -10,6 +10,8 @@ export default function Registro() {
   const [form, setForm] = useState({ nombre: '', email: '', password: '', confirmar: '' })
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
+  const [mostrarPassword, setMostrarPassword] = useState(false)
+  const [mostrarConfirmar, setMostrarConfirmar] = useState(false)
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -21,6 +23,9 @@ export default function Registro() {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       return t('auth.errorEmailInvalido')
+    }
+    if (form.password.length < 6) {
+      return t('auth.errorPasswordCorta')
     }
     if (form.password !== form.confirmar) {
       return t('auth.errorPasswordsNoCoinciden')
@@ -124,28 +129,48 @@ export default function Registro() {
 
             <div>
               <label className="block text-sm font-semibold text-soft mb-1.5">{t('auth.password')}</label>
-              <input
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                required
-                placeholder={t('auth.passwordPlaceholderRegistro')}
-                className="w-full border border-theme bg-surface text-main placeholder-muted rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 focus:border-transparent transition-all duration-200"
-              />
+              <div className="relative">
+                <input
+                  type={mostrarPassword ? 'text' : 'password'}
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  required
+                  placeholder={t('auth.passwordPlaceholderRegistro')}
+                  className="w-full border border-theme bg-surface text-main placeholder-muted rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 focus:border-transparent transition-all duration-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarPassword(v => !v)}
+                  aria-label={mostrarPassword ? t('auth.ocultarPassword') : t('auth.mostrarPassword')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-soft transition-colors"
+                >
+                  {mostrarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-soft mb-1.5">{t('auth.confirmarPassword')}</label>
-              <input
-                type="password"
-                name="confirmar"
-                value={form.confirmar}
-                onChange={handleChange}
-                required
-                placeholder={t('auth.confirmarPasswordPlaceholder')}
-                className="w-full border border-theme bg-surface text-main placeholder-muted rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 focus:border-transparent transition-all duration-200"
-              />
+              <div className="relative">
+                <input
+                  type={mostrarConfirmar ? 'text' : 'password'}
+                  name="confirmar"
+                  value={form.confirmar}
+                  onChange={handleChange}
+                  required
+                  placeholder={t('auth.confirmarPasswordPlaceholder')}
+                  className="w-full border border-theme bg-surface text-main placeholder-muted rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 focus:border-transparent transition-all duration-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarConfirmar(v => !v)}
+                  aria-label={mostrarConfirmar ? t('auth.ocultarPassword') : t('auth.mostrarPassword')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-soft transition-colors"
+                >
+                  {mostrarConfirmar ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <button

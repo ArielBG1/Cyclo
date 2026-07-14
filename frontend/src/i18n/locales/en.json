@@ -48,7 +48,10 @@
     "errorCamposRequeridos": "All fields are required",
     "errorEmailInvalido": "Invalid email format",
     "errorPasswordsNoCoinciden": "Passwords do not match",
-    "registroExitoso": "Account created. Sign in to continue."
+    "errorPasswordCorta": "Password must be at least 6 characters long",
+    "registroExitoso": "Account created. Sign in to continue.",
+    "mostrarPassword": "Show password",
+    "ocultarPassword": "Hide password"
   },
   "mapa": {
     "miUbicacion": "My location",

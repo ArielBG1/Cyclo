@@ -9,6 +9,10 @@ export async function registro(req, res) {
     return res.status(400).json({ error: 'Nombre, email y password son requeridos' })
   }
 
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' })
+  }
+
   try {
     const existe = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email])
     if (existe.rows.length > 0) {

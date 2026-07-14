@@ -344,10 +344,64 @@ Frontend:
   cd frontend
   pnpm dev    (corre en puerto 5173)
 
+## Deploy de prueba (nube)
+
+Deploy gratuito hecho para que compañeros vean el sistema (no es infraestructura
+de producción, es "versión de prueba"):
+
+- **Frontend**: Vercel — https://cyclo-nine.vercel.app (repo `ArielBG1/Cyclo`,
+  root directory `frontend`, auto-deploy en cada push a `main`). Env var
+  `VITE_API_URL` apunta al backend de Render.
+- **Backend**: Render free web service — https://cyclo-backend.onrender.com
+  (root directory `backend`, build `pnpm install`, start `pnpm start`,
+  auto-deploy en cada push a `main`). Env vars: `DATABASE_URL` (connection
+  string del pooler de Supabase) y `JWT_SECRET`.
+- **Base de datos**: Supabase (Postgres + PostGIS), proyecto separado de la
+  DB local. Se migró una sola vez con `pg_dump` (local) + `psql` (import a
+  Supabase). **No hay sync automático entre la DB local y Supabase.**
+
+### Decisiones técnicas y gotchas del deploy
+
+- `backend/src/config/db.js`: si existe `DATABASE_URL` (producción) se
+  conecta con esa connection string + SSL; si no (dev local) usa las
+  variables `DB_*` sueltas de siempre, sin SSL. El dev local no se vio
+  afectado.
+- Se usa la connection string del **Transaction pooler** de Supabase
+  (puerto 6543, host `aws-1-sa-east-1.pooler.supabase.com`), NO la de
+  "Direct connection" (`db.xxx.supabase.co:5432`): esa última requiere
+  IPv6 y no resuelve desde redes IPv4-only.
+- El pooler de Supabase (Supavisor) fuerza `search_path=''` por seguridad
+  en cada conexión nueva, lo que rompe queries sin schema explícito
+  (`SELECT * FROM puntos_reciclaje` fallaba con "relation does not
+  exist"). Se soluciona en `db.js` con
+  `pool.on('connect', client => client.query('SET search_path TO public'))`,
+  solo cuando hay `DATABASE_URL`.
+- `.env.example` agregado en `backend/` y `frontend/` documentando las
+  variables de entorno (sin valores reales, sí se commitean).
+
+### Limitaciones del free tier
+
+- **Render**: el servicio "duerme" tras ~15 min de inactividad (la
+  primera request después tarda 30-50s). Filesystem efímero: las fotos
+  de check-ins guardadas en `backend/uploads/` se pierden en cada
+  redeploy o reinicio.
+- **Supabase**: el proyecto se **pausa automáticamente tras ~7 días sin
+  actividad** (hay que restaurarlo a mano desde el dashboard si pasa).
+  Límite de 500MB de almacenamiento en el plan free.
+- **Sin sync DB local ↔ Supabase**: agregar una tabla, columna o
+  registros directo en `reciclamapa_db` local NO se refleja en Supabase.
+  Hay que correr el mismo cambio manualmente contra Supabase (vía `psql`
+  con la connection string del pooler) si se quiere que la demo online
+  lo tenga.
+- Apagar la PC local no afecta el deploy: frontend, backend y DB corren
+  100% en la nube, independientes de la máquina de desarrollo.
+
 ## Notas importantes para Claude
 
 - El usuario está aprendiendo y prefiere ir paso a paso, sin apurarse
 - Siempre explicar qué se va a hacer ANTES de hacerlo
 - Idioma: español
 - Antes de modificar archivos, leerlos para entender el estado actual
-- No proponer hosting/deploy todavía, todo es local por ahora
+- Ya existe un deploy de prueba en la nube (ver sección "Deploy de prueba
+  (nube)"); no es producción real, pero antes de asumir "todo es local"
+  hay que revisar esa sección

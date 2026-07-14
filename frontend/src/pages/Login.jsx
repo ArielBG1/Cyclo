@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { AlertCircle, CheckCircle, Recycle } from 'lucide-react'
+import { AlertCircle, CheckCircle, Recycle, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -13,6 +13,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
+  const [mostrarPassword, setMostrarPassword] = useState(false)
   const mensajeExito = location.state?.mensaje
 
   function handleChange(e) {
@@ -105,15 +106,25 @@ export default function Login() {
 
             <div>
               <label className="block text-sm font-semibold text-soft mb-1.5">{t('auth.password')}</label>
-              <input
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                required
-                placeholder={t('auth.passwordPlaceholder')}
-                className="w-full border border-theme bg-surface text-main placeholder-muted rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 focus:border-transparent transition-all duration-200"
-              />
+              <div className="relative">
+                <input
+                  type={mostrarPassword ? 'text' : 'password'}
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  required
+                  placeholder={t('auth.passwordPlaceholder')}
+                  className="w-full border border-theme bg-surface text-main placeholder-muted rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 focus:border-transparent transition-all duration-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarPassword(v => !v)}
+                  aria-label={mostrarPassword ? t('auth.ocultarPassword') : t('auth.mostrarPassword')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-soft transition-colors"
+                >
+                  {mostrarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <button
