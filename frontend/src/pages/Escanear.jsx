@@ -51,14 +51,35 @@ export default function Escanear() {
   const iniciarCamara = async (modo = facingMode) => {
     setError(null)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: modo,
-          width:      { ideal: 1280, max: 1920 },
-          height:     { ideal: 1280, max: 1920 },
-        },
-        audio: false,
-      })
+      let stream
+      try {
+        // 'exact' fuerza la cámara pedida — sin esto, 'environment' es solo
+        // una preferencia y varios celulares abren la frontal igual.
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { exact: modo },
+            width:      { ideal: 1280, max: 1920 },
+            height:     { ideal: 1280, max: 1920 },
+          },
+          audio: false,
+        })
+      } catch (exactErr) {
+        // Algunos dispositivos (webcams de PC, o celulares sin una cámara
+        // etiquetada exactamente así) no tienen match para 'exact' — reintentamos
+        // sin forzar para no bloquear el acceso a la cámara.
+        if (exactErr.name === 'OverconstrainedError' || exactErr.name === 'ConstraintNotSatisfiedError') {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: modo,
+              width:      { ideal: 1280, max: 1920 },
+              height:     { ideal: 1280, max: 1920 },
+            },
+            audio: false,
+          })
+        } else {
+          throw exactErr
+        }
+      }
       streamRef.current = stream
 
       if (videoRef.current) {

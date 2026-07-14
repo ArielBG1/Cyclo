@@ -148,12 +148,14 @@ export default function MapaControles({
     <>
       {/* ════════════════════════════════════
           MÓVIL — FAB + Bottom Sheet
-          z-[699] backdrop / z-[700] sheet+FAB
+          z-[1199] backdrop / z-[1200] sheet+FAB — por encima del control de
+          zoom de Leaflet (z-index 1000 fijo de la librería), si no el botón
+          +/- queda flotando arriba del panel cuando se abre.
           ════════════════════════════════════ */}
 
       {/* Backdrop oscuro — cierra el sheet al tocar fuera */}
       <div
-        className={`md:hidden fixed inset-0 bg-black/40 z-[699] transition-opacity duration-300 ${
+        className={`md:hidden fixed inset-0 bg-black/40 z-[1199] transition-opacity duration-300 ${
           abierto ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
         onClick={() => setAbierto(false)}
@@ -161,7 +163,7 @@ export default function MapaControles({
 
       {/* FAB — Floating Action Button */}
       <button
-        className="md:hidden fixed bottom-20 right-4 z-[700] w-14 h-14 bg-brand-500 hover:bg-brand-400 active:scale-95 hover:scale-105 text-white rounded-full flex items-center justify-center transition-all duration-200"
+        className="md:hidden fixed bottom-20 right-4 z-[1200] w-14 h-14 bg-brand-500 hover:bg-brand-400 active:scale-95 hover:scale-105 text-white rounded-full flex items-center justify-center transition-all duration-200"
         style={{ boxShadow: 'var(--shadow-brand-glow)' }}
         onClick={() => setAbierto(!abierto)}
         aria-label={t('mapa.abrirFiltrosAria')}
@@ -176,7 +178,7 @@ export default function MapaControles({
 
       {/* Bottom Sheet */}
       <div
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-[700] bg-surface rounded-t-2xl shadow-2xl border-t border-theme transition-transform duration-300 ease-out ${
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-[1200] bg-surface rounded-t-2xl shadow-2xl border-t border-theme transition-transform duration-300 ease-out ${
           abierto ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
