@@ -5,13 +5,17 @@ import api from '../../services/api'
 import { traducirMaterial } from '../../utils/materialKey'
 import { colorContenedor, textoSobreColor } from '../../utils/colorContenedor'
 import { IconoMaterial } from '../../utils/iconoMaterial'
+import { formatearHorario, DIAS_SEMANA, claveDia } from '../../utils/horario'
 import MiniMapaSelector from './MiniMapaSelector'
 
 const FORM_VACIO = {
   nombre: '',
   descripcion: '',
   direccion: '',
-  horario: '',
+  abierto24h: false,
+  diasApertura: [],
+  horaApertura: '08:00',
+  horaCierre: '18:00',
   latitud: '',
   longitud: '',
   materiales: [],
@@ -66,14 +70,17 @@ export default function AdminPuntos() {
   function abrirEditar(p) {
     setPuntoEditando(p)
     setForm({
-      nombre:      p.nombre || '',
-      descripcion: p.descripcion || '',
-      direccion:   p.direccion || '',
-      horario:     p.horario || '',
-      latitud:     p.latitud != null ? String(p.latitud) : '',
-      longitud:    p.longitud != null ? String(p.longitud) : '',
-      materiales:  (p.materiales || []).map((m) => Number(m.id)),
-      verificado:  !!p.verificado,
+      nombre:       p.nombre || '',
+      descripcion:  p.descripcion || '',
+      direccion:    p.direccion || '',
+      abierto24h:   !!p.abierto_24h,
+      diasApertura: p.dias_apertura || [],
+      horaApertura: p.hora_apertura ? p.hora_apertura.slice(0, 5) : '08:00',
+      horaCierre:   p.hora_cierre ? p.hora_cierre.slice(0, 5) : '18:00',
+      latitud:      p.latitud != null ? String(p.latitud) : '',
+      longitud:     p.longitud != null ? String(p.longitud) : '',
+      materiales:   (p.materiales || []).map((m) => Number(m.id)),
+      verificado:   !!p.verificado,
     })
     setErrorForm(null)
     setModalAbierto(true)
@@ -101,6 +108,19 @@ export default function AdminPuntos() {
     })
   }
 
+  function toggleDia(dia) {
+    setForm((prev) => {
+      const d = Number(dia)
+      const seleccionado = prev.diasApertura.includes(d)
+      return {
+        ...prev,
+        diasApertura: seleccionado
+          ? prev.diasApertura.filter((x) => x !== d)
+          : [...prev.diasApertura, d].sort((a, b) => a - b),
+      }
+    })
+  }
+
   function setUbicacionDesdeMapa(lat, lng) {
     setForm((prev) => ({ ...prev, latitud: lat.toFixed(7), longitud: lng.toFixed(7) }))
   }
@@ -111,13 +131,20 @@ export default function AdminPuntos() {
       setErrorForm(t('admin.faltaNombreUbicacion'))
       return
     }
+    if (!form.abierto24h && form.diasApertura.length === 0) {
+      setErrorForm(t('admin.faltanDias'))
+      return
+    }
     const payload = {
-      nombre:      form.nombre.trim(),
-      descripcion: form.descripcion.trim() || null,
-      direccion:   form.direccion.trim() || null,
-      horario:     form.horario.trim() || null,
-      latitud:     parseFloat(form.latitud),
-      longitud:    parseFloat(form.longitud),
+      nombre:         form.nombre.trim(),
+      descripcion:    form.descripcion.trim() || null,
+      direccion:      form.direccion.trim() || null,
+      abierto_24h:    form.abierto24h,
+      dias_apertura:  form.abierto24h ? null : form.diasApertura,
+      hora_apertura:  form.abierto24h ? null : form.horaApertura,
+      hora_cierre:    form.abierto24h ? null : form.horaCierre,
+      latitud:        parseFloat(form.latitud),
+      longitud:       parseFloat(form.longitud),
       materiales:  form.materiales,
       verificado:  !!form.verificado,
     }
@@ -214,7 +241,9 @@ export default function AdminPuntos() {
                   <tr key={p.id} className="border-t border-theme hover:bg-surface-alt transition-colors">
                     <td className="px-4 py-3 align-top">
                       <p className="font-semibold text-main">{p.nombre}</p>
-                      {p.horario && <p className="text-xs text-muted mt-0.5">{p.horario}</p>}
+                      {formatearHorario(t, p) && (
+                        <p className="text-xs text-muted mt-0.5">{formatearHorario(t, p)}</p>
+                      )}
                     </td>
                     <td className="px-4 py-3 align-top text-soft">
                       {p.direccion || <span className="italic text-muted">{t('admin.sinDireccion')}</span>}
@@ -286,6 +315,7 @@ export default function AdminPuntos() {
           errorForm={errorForm}
           onCambioCampo={actualizarCampo}
           onToggleMaterial={toggleMaterial}
+          onToggleDia={toggleDia}
           onUbicacionMapa={setUbicacionDesdeMapa}
           onGuardar={guardar}
           onCerrar={cerrarForm}
@@ -372,7 +402,7 @@ function BotonIcono({ children, onClick, title, variante = 'editar' }) {
 
 function PuntoFormModal({
   t, edicion, form, materialesDisponibles, guardando, errorForm,
-  onCambioCampo, onToggleMaterial, onUbicacionMapa, onGuardar, onCerrar,
+  onCambioCampo, onToggleMaterial, onToggleDia, onUbicacionMapa, onGuardar, onCerrar,
 }) {
   return (
     <>
@@ -449,27 +479,75 @@ function PuntoFormModal({
               />
             </FormCampo>
 
-            {/* Dirección + Horario */}
-            <div className="grid sm:grid-cols-2 gap-4">
-              <FormCampo label={t('admin.direccion')}>
+            {/* Dirección */}
+            <FormCampo label={t('admin.direccion')}>
+              <input
+                type="text"
+                value={form.direccion}
+                onChange={(e) => onCambioCampo('direccion', e.target.value)}
+                placeholder={t('admin.direccionPlaceholder')}
+                className="w-full border border-theme bg-surface text-main placeholder-muted rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+              />
+            </FormCampo>
+
+            {/* Horario */}
+            <FormCampo label={t('admin.horario')}>
+              <label className="flex items-center gap-2.5 cursor-pointer select-none mb-3">
                 <input
-                  type="text"
-                  value={form.direccion}
-                  onChange={(e) => onCambioCampo('direccion', e.target.value)}
-                  placeholder={t('admin.direccionPlaceholder')}
-                  className="w-full border border-theme bg-surface text-main placeholder-muted rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                  type="checkbox"
+                  checked={form.abierto24h}
+                  onChange={(e) => onCambioCampo('abierto24h', e.target.checked)}
+                  className="rounded accent-brand-500 cursor-pointer w-4 h-4"
                 />
-              </FormCampo>
-              <FormCampo label={t('admin.horario')}>
-                <input
-                  type="text"
-                  value={form.horario}
-                  onChange={(e) => onCambioCampo('horario', e.target.value)}
-                  placeholder={t('admin.horarioPlaceholder')}
-                  className="w-full border border-theme bg-surface text-main placeholder-muted rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
-                />
-              </FormCampo>
-            </div>
+                <span className="text-sm font-medium text-main">{t('admin.abierto24h')}</span>
+              </label>
+
+              {!form.abierto24h && (
+                <>
+                  <p className="text-xs font-semibold text-muted mb-1.5">{t('admin.diasApertura')}</p>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {DIAS_SEMANA.map((dia) => {
+                      const sel = form.diasApertura.includes(dia)
+                      return (
+                        <button
+                          key={dia}
+                          type="button"
+                          onClick={() => onToggleDia(dia)}
+                          className={[
+                            'w-11 h-9 rounded-lg text-xs font-semibold transition-colors',
+                            sel
+                              ? 'bg-brand-500 text-white'
+                              : 'bg-surface-alt text-soft border border-theme hover:bg-surface',
+                          ].join(' ')}
+                        >
+                          {t(`diasCorto.${claveDia(dia)}`)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-muted mb-1">{t('admin.horaApertura')}</label>
+                      <input
+                        type="time"
+                        value={form.horaApertura}
+                        onChange={(e) => onCambioCampo('horaApertura', e.target.value)}
+                        className="w-full border border-theme bg-surface text-main rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-muted mb-1">{t('admin.horaCierre')}</label>
+                      <input
+                        type="time"
+                        value={form.horaCierre}
+                        onChange={(e) => onCambioCampo('horaCierre', e.target.value)}
+                        className="w-full border border-theme bg-surface text-main rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </FormCampo>
 
             {/* Ubicación */}
             <FormCampo label={t('admin.ubicacion')} requerido>

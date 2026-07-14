@@ -49,10 +49,11 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const esAdmin = usuario?.rol === 'admin'
+  const esAdmin = usuario?.rol === 'admin' || usuario?.rol === 'super_admin'
+  const esSuperAdmin = usuario?.rol === 'super_admin'
 
   return (
-    <AuthContext.Provider value={{ usuario, token, login, logout, cargando, refrescarUsuario, esAdmin }}>
+    <AuthContext.Provider value={{ usuario, token, login, logout, cargando, refrescarUsuario, esAdmin, esSuperAdmin }}>
       {children}
     </AuthContext.Provider>
   )

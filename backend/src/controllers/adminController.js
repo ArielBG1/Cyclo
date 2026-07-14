@@ -3,7 +3,8 @@ import pool from '../config/db.js'
 // SELECT estándar que devuelve un punto con sus materiales agregados
 const SELECT_PUNTO_CON_MATERIALES = `
   SELECT
-    p.id, p.nombre, p.descripcion, p.direccion, p.horario, p.verificado, p.creado_en,
+    p.id, p.nombre, p.descripcion, p.direccion, p.verificado, p.creado_en,
+    p.abierto_24h, p.dias_apertura, p.hora_apertura, p.hora_cierre,
     ST_Y(p.ubicacion::geometry) AS latitud,
     ST_X(p.ubicacion::geometry) AS longitud,
     COALESCE(
@@ -28,7 +29,8 @@ export async function listarPuntosAdmin(req, res) {
   try {
     const result = await pool.query(`
       SELECT
-        p.id, p.nombre, p.descripcion, p.direccion, p.horario, p.verificado, p.creado_en,
+        p.id, p.nombre, p.descripcion, p.direccion, p.verificado, p.creado_en,
+        p.abierto_24h, p.dias_apertura, p.hora_apertura, p.hora_cierre,
         ST_Y(p.ubicacion::geometry) AS latitud,
         ST_X(p.ubicacion::geometry) AS longitud,
         COALESCE(
@@ -65,7 +67,10 @@ export async function crearPunto(req, res) {
     direccion,
     latitud,
     longitud,
-    horario,
+    abierto_24h = false,
+    dias_apertura,
+    hora_apertura,
+    hora_cierre,
     materiales = [],
     verificado = true,
   } = req.body
@@ -86,15 +91,18 @@ export async function crearPunto(req, res) {
 
     const insertRes = await client.query(
       `INSERT INTO puntos_reciclaje
-         (nombre, descripcion, direccion, ubicacion, horario, creado_por, verificado)
-       VALUES ($1, $2, $3, ST_GeogFromText($4), $5, $6, $7)
+         (nombre, descripcion, direccion, ubicacion, abierto_24h, dias_apertura, hora_apertura, hora_cierre, creado_por, verificado)
+       VALUES ($1, $2, $3, ST_GeogFromText($4), $5, $6, $7, $8, $9, $10)
        RETURNING id`,
       [
         nombre,
         descripcion || null,
         direccion || null,
         `POINT(${lng} ${lat})`,
-        horario || null,
+        !!abierto_24h,
+        abierto_24h ? null : (Array.isArray(dias_apertura) ? dias_apertura : null),
+        abierto_24h ? null : (hora_apertura || null),
+        abierto_24h ? null : (hora_cierre || null),
         req.usuario.id,
         !!verificado,
       ]
@@ -134,7 +142,11 @@ export async function actualizarPunto(req, res) {
     return res.status(400).json({ error: 'ID inválido' })
   }
 
-  const { nombre, descripcion, direccion, latitud, longitud, horario, materiales, verificado } = req.body
+  const {
+    nombre, descripcion, direccion, latitud, longitud,
+    abierto_24h, dias_apertura, hora_apertura, hora_cierre,
+    materiales, verificado,
+  } = req.body
 
   const client = await pool.connect()
   try {
@@ -154,8 +166,13 @@ export async function actualizarPunto(req, res) {
     if (nombre !== undefined)      { sets.push(`nombre = $${idx++}`);      values.push(nombre) }
     if (descripcion !== undefined) { sets.push(`descripcion = $${idx++}`); values.push(descripcion || null) }
     if (direccion !== undefined)   { sets.push(`direccion = $${idx++}`);   values.push(direccion || null) }
-    if (horario !== undefined)     { sets.push(`horario = $${idx++}`);     values.push(horario || null) }
     if (verificado !== undefined)  { sets.push(`verificado = $${idx++}`);  values.push(!!verificado) }
+    if (abierto_24h !== undefined) {
+      sets.push(`abierto_24h = $${idx++}`);   values.push(!!abierto_24h)
+      sets.push(`dias_apertura = $${idx++}`); values.push(abierto_24h ? null : (Array.isArray(dias_apertura) ? dias_apertura : null))
+      sets.push(`hora_apertura = $${idx++}`); values.push(abierto_24h ? null : (hora_apertura || null))
+      sets.push(`hora_cierre = $${idx++}`);   values.push(abierto_24h ? null : (hora_cierre || null))
+    }
     if (latitud !== undefined && longitud !== undefined) {
       const lat = parseFloat(latitud)
       const lng = parseFloat(longitud)

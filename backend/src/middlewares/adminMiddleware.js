@@ -15,7 +15,7 @@ export async function verificarAdmin(req, res, next) {
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Usuario no encontrado' })
     }
-    if (result.rows[0].rol !== 'admin') {
+    if (result.rows[0].rol !== 'admin' && result.rows[0].rol !== 'super_admin') {
       return res.status(403).json({ error: 'Acceso denegado. Se requieren permisos de administrador.' })
     }
     next()

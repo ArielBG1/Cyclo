@@ -176,6 +176,30 @@
     "metros": "m",
     "km": "km"
   },
+  "dias": {
+    "lunes": "Lunes",
+    "martes": "Martes",
+    "miercoles": "Miércoles",
+    "jueves": "Jueves",
+    "viernes": "Viernes",
+    "sabado": "Sábado",
+    "domingo": "Domingo"
+  },
+  "diasCorto": {
+    "lunes": "Lun",
+    "martes": "Mar",
+    "miercoles": "Mié",
+    "jueves": "Jue",
+    "viernes": "Vie",
+    "sabado": "Sáb",
+    "domingo": "Dom"
+  },
+  "horario": {
+    "24h": "Abierto las 24 horas",
+    "rangoDias": "{{desde}} a {{hasta}}",
+    "diasYHoras": "{{dias}} de {{desde}} a {{hasta}}",
+    "sinHorario": "Horario no especificado"
+  },
   "idioma": {
     "espanol": "Español",
     "ingles": "Inglés",
@@ -205,7 +229,11 @@
     "direccion": "Dirección",
     "direccionPlaceholder": "Calle y número, barrio",
     "horario": "Horario",
-    "horarioPlaceholder": "Ej: Lunes a Viernes 8 a 18 hs",
+    "abierto24h": "Abierto las 24 horas",
+    "diasApertura": "Días de atención",
+    "horaApertura": "Desde",
+    "horaCierre": "Hasta",
+    "faltanDias": "Seleccioná al menos un día",
     "ubicacion": "Ubicación",
     "clickEnMapa": "Hacé click en el mapa para colocar el punto",
     "latitud": "Latitud",
@@ -235,7 +263,22 @@
     "faltaNombreUbicacion": "Faltan datos: el nombre y la ubicación son requeridos",
     "accesoDenegado": "Acceso denegado. Se requieren permisos de administrador.",
     "dashboardTitulo": "Dashboard",
-    "dashboardSinImplementar": "El dashboard de impacto se implementará en una próxima fase."
+    "dashboardSinImplementar": "El dashboard de impacto se implementará en una próxima fase.",
+    "usuarios": "Usuarios",
+    "checkins": "Check-ins",
+    "tablaUsuario": "Usuario",
+    "tablaRol": "Rol",
+    "tablaPuntos": "Puntos",
+    "tablaNivel": "Nivel",
+    "rolUser": "Usuario",
+    "rolAdmin": "Admin",
+    "rolSuperAdmin": "Super Admin",
+    "rolSuperAdminAyuda": "El rol de super administrador no se puede cambiar desde este panel.",
+    "editarUsuario": "Editar usuario",
+    "puntosInvalidos": "Los puntos deben ser un número mayor o igual a 0",
+    "sinUsuarios": "Todavía no hay usuarios registrados",
+    "sinCheckins": "Todavía no hay check-ins registrados",
+    "confirmarBorradoCheckinMensaje": "¿Borrar este check-in de {{nombre}}? Se le van a restar {{puntos}} puntos. Esta acción no se puede deshacer."
   },
   "perfil": {
     "titulo": "Mi perfil",

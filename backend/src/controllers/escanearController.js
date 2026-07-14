@@ -29,7 +29,7 @@ export async function detectarMaterial(req, res) {
     const base64Data  = foto_base64.replace(/^data:image\/\w+;base64,/, '')
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-5',
+      model: 'claude-haiku-4-5',
       max_tokens: 512,
       messages: [
         {

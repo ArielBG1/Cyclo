@@ -176,6 +176,30 @@
     "metros": "m",
     "km": "km"
   },
+  "dias": {
+    "lunes": "월요일",
+    "martes": "화요일",
+    "miercoles": "수요일",
+    "jueves": "목요일",
+    "viernes": "금요일",
+    "sabado": "토요일",
+    "domingo": "일요일"
+  },
+  "diasCorto": {
+    "lunes": "월",
+    "martes": "화",
+    "miercoles": "수",
+    "jueves": "목",
+    "viernes": "금",
+    "sabado": "토",
+    "domingo": "일"
+  },
+  "horario": {
+    "24h": "24시간 운영",
+    "rangoDias": "{{desde}}~{{hasta}}",
+    "diasYHoras": "{{dias}} {{desde}}~{{hasta}}",
+    "sinHorario": "운영 시간 미정"
+  },
   "idioma": {
     "espanol": "스페인어",
     "ingles": "영어",
@@ -205,7 +229,11 @@
     "direccion": "주소",
     "direccionPlaceholder": "도로명, 번지, 동네",
     "horario": "운영 시간",
-    "horarioPlaceholder": "예: 월~금 오전 8시 ~ 오후 6시",
+    "abierto24h": "24시간 운영",
+    "diasApertura": "운영 요일",
+    "horaApertura": "시작",
+    "horaCierre": "종료",
+    "faltanDias": "요일을 하나 이상 선택해 주세요",
     "ubicacion": "위치",
     "clickEnMapa": "지도를 클릭하여 거점을 표시하세요",
     "latitud": "위도",
@@ -235,7 +263,22 @@
     "faltaNombreUbicacion": "필수 항목 누락: 이름과 위치를 입력해 주세요",
     "accesoDenegado": "접근이 거부되었어요. 관리자 권한이 필요해요.",
     "dashboardTitulo": "대시보드",
-    "dashboardSinImplementar": "임팩트 대시보드는 다음 단계에서 제공될 예정이에요."
+    "dashboardSinImplementar": "임팩트 대시보드는 다음 단계에서 제공될 예정이에요.",
+    "usuarios": "사용자",
+    "checkins": "체크인",
+    "tablaUsuario": "사용자",
+    "tablaRol": "역할",
+    "tablaPuntos": "포인트",
+    "tablaNivel": "레벨",
+    "rolUser": "사용자",
+    "rolAdmin": "관리자",
+    "rolSuperAdmin": "슈퍼 관리자",
+    "rolSuperAdminAyuda": "슈퍼 관리자의 역할은 이 화면에서 변경할 수 없어요.",
+    "editarUsuario": "사용자 수정",
+    "puntosInvalidos": "포인트는 0 이상의 숫자여야 해요",
+    "sinUsuarios": "아직 등록된 사용자가 없어요",
+    "sinCheckins": "아직 등록된 체크인이 없어요",
+    "confirmarBorradoCheckinMensaje": "{{nombre}}님의 이 체크인을 삭제할까요? {{puntos}} 포인트가 차감돼요. 이 작업은 되돌릴 수 없어요."
   },
   "perfil": {
     "titulo": "내 프로필",

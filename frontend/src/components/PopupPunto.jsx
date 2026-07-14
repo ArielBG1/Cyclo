@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { calcularDistancia, formatearDistancia } from '../utils/distancia'
+import { formatearHorario } from '../utils/horario'
 import { traducirMaterial } from '../utils/materialKey'
 import { colorContenedor } from '../utils/colorContenedor'
 import { IconoMaterial } from '../utils/iconoMaterial'
@@ -23,6 +24,8 @@ export default function PopupPunto({ punto, ubicacionUsuario, onReciclar }) {
         )
       : null
 
+  const horario = formatearHorario(t, punto)
+
   return (
     <div style={{ minWidth: '260px', maxWidth: '320px', fontFamily: "'Inter', system-ui, sans-serif", padding: '16px' }}>
 
@@ -42,11 +45,11 @@ export default function PopupPunto({ punto, ubicacionUsuario, onReciclar }) {
       )}
 
       {/* Horario */}
-      {punto.horario && (
+      {horario && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
           <Clock size={13} style={{ color: 'var(--color-text-muted)', marginTop: '1px', flexShrink: 0 }} />
           <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: 0, lineHeight: '1.4' }}>
-            {punto.horario}
+            {horario}
           </p>
         </div>
       )}

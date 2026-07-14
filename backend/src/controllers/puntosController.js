@@ -9,7 +9,8 @@ export async function puntosCercanos(req, res) {
     const geog = `POINT(${lng} ${lat})`
     const result = await pool.query(`
       SELECT
-        p.id, p.nombre, p.direccion, p.horario,
+        p.id, p.nombre, p.direccion,
+        p.abierto_24h, p.dias_apertura, p.hora_apertura, p.hora_cierre,
         ST_Y(p.ubicacion::geometry) AS latitud,
         ST_X(p.ubicacion::geometry) AS longitud,
         ROUND(
@@ -32,7 +33,8 @@ export async function listarPuntos(req, res) {
   try {
     const result = await pool.query(`
       SELECT
-        p.id, p.nombre, p.descripcion, p.direccion, p.horario,
+        p.id, p.nombre, p.descripcion, p.direccion,
+        p.abierto_24h, p.dias_apertura, p.hora_apertura, p.hora_cierre,
         ST_Y(p.ubicacion::geometry) AS latitud,
         ST_X(p.ubicacion::geometry) AS longitud,
         COALESCE(

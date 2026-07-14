@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import Navbar from './components/Navbar'
 import RutaAdmin from './components/RutaAdmin'
+import RutaSuperAdmin from './components/RutaSuperAdmin'
 import RutaPrivada from './components/RutaPrivada'
 import ErrorBoundary from './components/ErrorBoundary'
 import Home from './pages/Home'
@@ -13,6 +14,8 @@ import Perfil from './pages/Perfil'
 import AdminLayout from './pages/admin/AdminLayout'
 import AdminPuntos from './pages/admin/AdminPuntos'
 import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminUsuarios from './pages/admin/AdminUsuarios'
+import AdminCheckins from './pages/admin/AdminCheckins'
 
 function App() {
   return (
@@ -34,6 +37,8 @@ function App() {
                   <Route index element={<Navigate to="dashboard" replace />} />
                   <Route path="dashboard" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
                   <Route path="puntos" element={<AdminPuntos />} />
+                  <Route path="usuarios" element={<RutaSuperAdmin><AdminUsuarios /></RutaSuperAdmin>} />
+                  <Route path="checkins" element={<RutaSuperAdmin><AdminCheckins /></RutaSuperAdmin>} />
                 </Route>
               </Route>
             </Routes>

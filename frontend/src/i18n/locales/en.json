@@ -176,6 +176,30 @@
     "metros": "m",
     "km": "km"
   },
+  "dias": {
+    "lunes": "Monday",
+    "martes": "Tuesday",
+    "miercoles": "Wednesday",
+    "jueves": "Thursday",
+    "viernes": "Friday",
+    "sabado": "Saturday",
+    "domingo": "Sunday"
+  },
+  "diasCorto": {
+    "lunes": "Mon",
+    "martes": "Tue",
+    "miercoles": "Wed",
+    "jueves": "Thu",
+    "viernes": "Fri",
+    "sabado": "Sat",
+    "domingo": "Sun"
+  },
+  "horario": {
+    "24h": "Open 24 hours",
+    "rangoDias": "{{desde}} to {{hasta}}",
+    "diasYHoras": "{{dias}}, {{desde}}–{{hasta}}",
+    "sinHorario": "Hours not specified"
+  },
   "idioma": {
     "espanol": "Spanish",
     "ingles": "English",
@@ -205,7 +229,11 @@
     "direccion": "Address",
     "direccionPlaceholder": "Street and number, neighborhood",
     "horario": "Hours",
-    "horarioPlaceholder": "e.g. Mon to Fri 8 AM to 6 PM",
+    "abierto24h": "Open 24 hours",
+    "diasApertura": "Open days",
+    "horaApertura": "From",
+    "horaCierre": "To",
+    "faltanDias": "Select at least one day",
     "ubicacion": "Location",
     "clickEnMapa": "Click on the map to place the point",
     "latitud": "Latitude",
@@ -235,7 +263,22 @@
     "faltaNombreUbicacion": "Missing data: name and location are required",
     "accesoDenegado": "Access denied. Administrator permissions required.",
     "dashboardTitulo": "Dashboard",
-    "dashboardSinImplementar": "The impact dashboard will be implemented in an upcoming phase."
+    "dashboardSinImplementar": "The impact dashboard will be implemented in an upcoming phase.",
+    "usuarios": "Users",
+    "checkins": "Check-ins",
+    "tablaUsuario": "User",
+    "tablaRol": "Role",
+    "tablaPuntos": "Points",
+    "tablaNivel": "Level",
+    "rolUser": "User",
+    "rolAdmin": "Admin",
+    "rolSuperAdmin": "Super Admin",
+    "rolSuperAdminAyuda": "A super admin's role can't be changed from this panel.",
+    "editarUsuario": "Edit user",
+    "puntosInvalidos": "Points must be a number greater than or equal to 0",
+    "sinUsuarios": "No registered users yet",
+    "sinCheckins": "No check-ins recorded yet",
+    "confirmarBorradoCheckinMensaje": "Delete this check-in from {{nombre}}? {{puntos}} points will be subtracted from them. This action cannot be undone."
   },
   "perfil": {
     "titulo": "My profile",

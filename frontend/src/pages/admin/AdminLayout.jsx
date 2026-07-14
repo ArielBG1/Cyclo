@@ -1,9 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Settings, MapPin, BarChart3 } from 'lucide-react'
+import { Settings, MapPin, BarChart3, Users, ClipboardList } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '../../context/AuthContext'
 
 export default function AdminLayout() {
   const { t } = useTranslation()
+  const { esSuperAdmin } = useAuth()
 
   const tabClase = ({ isActive }) => [
     'flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200',
@@ -33,6 +35,18 @@ export default function AdminLayout() {
             <BarChart3 size={16} />
             {t('admin.dashboard')}
           </NavLink>
+          {esSuperAdmin && (
+            <>
+              <NavLink to="/admin/usuarios" className={tabClase}>
+                <Users size={16} />
+                {t('admin.usuarios')}
+              </NavLink>
+              <NavLink to="/admin/checkins" className={tabClase}>
+                <ClipboardList size={16} />
+                {t('admin.checkins')}
+              </NavLink>
+            </>
+          )}
         </div>
 
         <Outlet />
