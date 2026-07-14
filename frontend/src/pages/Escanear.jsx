@@ -228,63 +228,64 @@ export default function Escanear() {
           <div className="flex flex-col items-center gap-4">
             <canvas ref={canvasRef} className="hidden" />
 
-            <div className={`relative w-full rounded-2xl overflow-hidden shadow-lg border-2 border-brand-800/30 bg-brand-900 ${streamActivo ? 'block animate-fade-in' : 'hidden'}`}>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full rounded-lg bg-brand-900"
-                style={{ minHeight: '300px', objectFit: 'cover' }}
-              />
-              {streamActivo && (
-                <button
-                  onClick={rotarCamara}
-                  aria-label={t('escanear.rotarCamara')}
-                  title={t('escanear.rotarCamara')}
-                  className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
-                >
-                  <SwitchCamera size={18} />
-                </button>
-              )}
-            </div>
-
-            {streamActivo ? (
+            {capturando ? (
+              /* ── Analizando con IA (foto ya capturada, esperando al backend) ── */
+              <div className="w-full flex flex-col items-center justify-center gap-4 py-16 animate-fade-in">
+                <Bot size={56} className="text-brand-500 animate-gentle-pulse" strokeWidth={1.5} />
+                <p className="font-display text-lg font-bold text-main">{t('escanear.analizando')}</p>
+                <div className="rm-progress-bar max-w-xs mx-auto" />
+              </div>
+            ) : (
               <>
-                <button
-                  onClick={capturarYDetectar}
-                  disabled={capturando}
-                  className="w-full flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-400 disabled:bg-brand-100 disabled:text-brand-600 text-white font-bold py-4 rounded-2xl text-base shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
-                >
-                  {capturando ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      {t('escanear.analizando')}
-                    </>
-                  ) : (
-                    <>
+                <div className={`relative w-full rounded-2xl overflow-hidden shadow-lg border-2 border-brand-800/30 bg-brand-900 ${streamActivo ? 'block animate-fade-in' : 'hidden'}`}>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full rounded-lg bg-brand-900"
+                    style={{ minHeight: '300px', objectFit: 'cover' }}
+                  />
+                  {streamActivo && (
+                    <button
+                      onClick={rotarCamara}
+                      aria-label={t('escanear.rotarCamara')}
+                      title={t('escanear.rotarCamara')}
+                      className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+                    >
+                      <SwitchCamera size={18} />
+                    </button>
+                  )}
+                </div>
+
+                {streamActivo ? (
+                  <>
+                    <button
+                      onClick={capturarYDetectar}
+                      className="w-full flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-400 text-white font-bold py-4 rounded-2xl text-base shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                    >
                       <Camera size={18} />
                       {t('escanear.capturarImagen')}
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={detenerCamara}
-                  className="text-sm text-muted hover:text-soft transition-colors"
-                >
-                  {t('escanear.cancelar')}
-                </button>
+                    </button>
+                    <button
+                      onClick={detenerCamara}
+                      className="text-sm text-muted hover:text-soft transition-colors"
+                    >
+                      {t('escanear.cancelar')}
+                    </button>
+                  </>
+                ) : (
+                  !error && (
+                    <button
+                      onClick={iniciarCamara}
+                      className="w-full flex items-center justify-center gap-3 bg-brand-500 hover:bg-brand-400 text-white font-bold py-8 rounded-2xl text-lg shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                    >
+                      <Camera size={24} />
+                      {t('escanear.abrirCamara')}
+                    </button>
+                  )
+                )}
               </>
-            ) : (
-              !error && (
-                <button
-                  onClick={iniciarCamara}
-                  className="w-full flex items-center justify-center gap-3 bg-brand-500 hover:bg-brand-400 text-white font-bold py-8 rounded-2xl text-lg shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
-                >
-                  <Camera size={24} />
-                  {t('escanear.abrirCamara')}
-                </button>
-              )
             )}
           </div>
         )}
