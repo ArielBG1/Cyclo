@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Camera, X as IconX, AlertTriangle } from 'lucide-react'
+import { Camera, X as IconX, AlertTriangle, SwitchCamera } from 'lucide-react'
 
-export default function CameraCapture({ onCapture, onClose, facingMode = 'environment' }) {
+export default function CameraCapture({ onCapture, onClose, facingMode: facingModeInicial = 'environment' }) {
   const { t } = useTranslation()
   const videoRef  = useRef(null)
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
-  const [listo, setListo]   = useState(false)
-  const [error, setError]   = useState(null)
+  const [listo, setListo]         = useState(false)
+  const [error, setError]         = useState(null)
+  const [facingMode, setFacingMode] = useState(facingModeInicial)
 
   useEffect(() => {
     async function iniciar() {
@@ -95,6 +96,29 @@ export default function CameraCapture({ onCapture, onClose, facingMode = 'enviro
       >
         <IconX size={18} />
       </button>
+
+      {/* Botón rotar cámara */}
+      {!error && listo && (
+        <button
+          onClick={() => {
+            setListo(false)
+            setFacingMode((m) => (m === 'environment' ? 'user' : 'environment'))
+          }}
+          style={{
+            position: 'absolute', top: '16px', left: '16px',
+            width: '40px', height: '40px', borderRadius: '50%',
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            border: '2px solid rgba(255,255,255,0.5)',
+            color: '#fff', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 10,
+          }}
+          aria-label={t('escanear.rotarCamara')}
+          title={t('escanear.rotarCamara')}
+        >
+          <SwitchCamera size={18} />
+        </button>
+      )}
 
       {error ? (
         <div style={{ color: '#fff', textAlign: 'center', padding: '32px', maxWidth: '320px' }}>

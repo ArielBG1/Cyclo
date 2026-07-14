@@ -1,60 +1,41 @@
 import { useState, useEffect, useRef } from 'react'
-import * as cocoSsd from '@tensorflow-models/coco-ssd'
-import * as tf from '@tensorflow/tfjs'
 import {
   Camera, RotateCcw, AlertCircle, MapPin, Navigation, Bot,
-  Recycle, HelpCircle, Wrench, Lightbulb, CheckCircle2, AlertTriangle,
+  Recycle, Lightbulb, CheckCircle2, AlertTriangle, SwitchCamera,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { detectarMaterial, traducirClase, formatearDetecciones } from '../utils/mapeoMateriales'
 import { traducirMaterial, traducirInstrucciones } from '../utils/materialKey'
 import { colorContenedor } from '../utils/colorContenedor'
 import { IconoMaterial } from '../utils/iconoMaterial'
 import api from '../services/api'
 
-// Cambiar a true solo para diagnosticar problemas de detección de CycloScan.
-// Cuando está activado se muestra el bloque debug con la imagen procesada,
-// dimensiones y cantidad de objetos detectados.
-const DEBUG_IA = false
-
 export default function Escanear() {
   const { t } = useTranslation()
-  const [cargandoModelo, setCargandoModelo] = useState(true)
-  const [modelo, setModelo] = useState(null)
+  const [cargando, setCargando] = useState(true)
   const [materiales, setMateriales] = useState([])
   const [streamActivo, setStreamActivo] = useState(false)
   const [capturando, setCapturando] = useState(false)
   const [resultado, setResultado] = useState(null)
   const [error, setError] = useState(null)
   const [ubicacion, setUbicacion] = useState(null)
-  const [imagenIA, setImagenIA] = useState(null)  // debug: imagen limpia que vio el modelo
+  const [facingMode, setFacingMode] = useState('environment')  // 'environment' = trasera, 'user' = frontal
 
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
 
   useEffect(() => {
-    async function cargarModelo() {
-      try {
-        const m = await cocoSsd.load({ base: 'mobilenet_v2' })
-        setModelo(m)
-      } catch {
-        setError(t('escanear.errorModelo'))
-      } finally {
-        setCargandoModelo(false)
-      }
-    }
-
     async function cargarMateriales() {
       try {
         const res = await api.get('/materiales')
         setMateriales(res.data)
       } catch {
-        // Sin info de materiales no es crítico
+        setError(t('escanear.errorModelo'))
+      } finally {
+        setCargando(false)
       }
     }
 
-    cargarModelo()
     cargarMateriales()
   }, [])
 
@@ -67,12 +48,12 @@ export default function Escanear() {
     }
   }, [])
 
-  const iniciarCamara = async () => {
+  const iniciarCamara = async (modo = facingMode) => {
     setError(null)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: 'environment',
+          facingMode: modo,
           width:      { ideal: 1280, max: 1920 },
           height:     { ideal: 1280, max: 1920 },
         },
@@ -109,6 +90,16 @@ export default function Escanear() {
     }
   }
 
+  function rotarCamara() {
+    const nuevoModo = facingMode === 'environment' ? 'user' : 'environment'
+    setFacingMode(nuevoModo)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    iniciarCamara(nuevoModo)
+  }
+
   function detenerCamara() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
@@ -121,7 +112,7 @@ export default function Escanear() {
   }
 
   async function capturarYDetectar() {
-    if (!modelo || !videoRef.current || !canvasRef.current) return
+    if (!videoRef.current || !canvasRef.current) return
     setCapturando(true)
     setError(null)
 
@@ -133,106 +124,22 @@ export default function Escanear() {
         throw new Error(t('escanear.errorVideoNoListo'))
       }
 
-      // Tamaño reducido para la IA (max 640px)
-      const TARGET_MAX = 640
-      const ratio = Math.min(TARGET_MAX / video.videoWidth, TARGET_MAX / video.videoHeight, 1)
-      const wDet  = Math.round(video.videoWidth  * ratio)
-      const hDet  = Math.round(video.videoHeight * ratio)
-
-      // Ráfaga de varios frames en vez de uno solo: en celular sostenido a mano
-      // es común que el instante exacto del tap tenga desenfoque de movimiento
-      // o el autoenfoque todavía esté ajustando. Probamos unos frames espaciados
-      // y nos quedamos con el de mejor detección. En webcam de PC (imagen fija)
-      // esto no cambia el resultado, solo suma medio segundo.
-      const FRAMES       = 3
-      const INTERVALO_MS = 150
-      const candidatos   = []
-
-      for (let i = 0; i < FRAMES; i++) {
-        if (i > 0) await new Promise((r) => setTimeout(r, INTERVALO_MS))
-
-        const full = document.createElement('canvas')
-        full.width  = video.videoWidth
-        full.height = video.videoHeight
-        full.getContext('2d').drawImage(video, 0, 0)
-
-        const canvasDet = document.createElement('canvas')
-        canvasDet.width  = wDet
-        canvasDet.height = hDet
-        const ctxDet = canvasDet.getContext('2d')
-        ctxDet.imageSmoothingEnabled = true
-        ctxDet.imageSmoothingQuality = 'high'
-        ctxDet.drawImage(video, 0, 0, wDet, hDet)
-
-        const tensor = tf.browser.fromPixels(canvasDet)
-        let detecciones = await modelo.detect(tensor)
-        tensor.dispose()
-
-        if (!detecciones || detecciones.length === 0) {
-          const tensor2 = tf.browser.fromPixels(canvasDet)
-          detecciones = await modelo.detect(tensor2, 20, 0.1)
-          tensor2.dispose()
-        }
-
-        candidatos.push({ full, canvasDet, detecciones, score: detecciones?.[0]?.score ?? 0 })
-      }
-
-      candidatos.sort((a, b) => b.score - a.score)
-      const mejor = candidatos[0]
-      const deteccionesFinales = mejor.detecciones
-
-      console.log('=== DEBUG DETECCIÓN (ráfaga) ===')
-      console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight)
-      console.log('Scores por frame:', candidatos.map((c) => c.score))
-      console.log('Mejor detección:', deteccionesFinales)
-      console.log('=== FIN DEBUG ===')
-
-      setImagenIA(mejor.canvasDet.toDataURL('image/jpeg', 0.85))
-
-      const match = detectarMaterial(deteccionesFinales)
-
-      // Dibujar el frame elegido + bbox en el canvas visible
-      canvas.width  = mejor.full.width
-      canvas.height = mejor.full.height
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(mejor.full, 0, 0)
-
-      if (match?.bbox) {
-        const escala           = video.videoWidth / wDet
-        const [bx, by, bw, bh] = match.bbox.map((v) => v * escala)
-        const grosor           = Math.max(3, Math.round(video.videoWidth / 400))
-        const fontSize         = Math.max(14, Math.round(video.videoWidth / 55))
-        const label            = `${match.claseTraducida} ${Math.round(match.confianza * 100)}%`
-
-        ctx.font     = `bold ${fontSize}px Inter, system-ui, sans-serif`
-        const textW  = ctx.measureText(label).width
-        const padH   = 6
-        const labelH = fontSize + padH * 2
-        const labelX = Math.max(0, Math.min(bx, video.videoWidth - textW - 12))
-        const labelY = by > labelH + grosor + 2 ? by - grosor - 2 : by + bh + grosor + 2
-
-        ctx.strokeStyle = '#1FAA59'
-        ctx.lineWidth   = grosor
-        ctx.lineJoin    = 'round'
-        ctx.strokeRect(bx, by, bw, bh)
-
-        ctx.fillStyle = '#1FAA59'
-        ctx.fillRect(labelX, labelY - labelH, textW + 12, labelH)
-        ctx.fillStyle = '#ffffff'
-        ctx.fillText(label, labelX + 6, labelY - padH)
-      }
-
+      canvas.width  = video.videoWidth
+      canvas.height = video.videoHeight
+      canvas.getContext('2d').drawImage(video, 0, 0)
       const fotoBase64 = canvas.toDataURL('image/jpeg', 0.85)
 
-      // Buscar material en DB
-      const materialId   = match?.materialId ?? null
-      const materialInfo = materialId
-        ? (materiales.find((m) => Number(m.id) === materialId) ?? null)
+      detenerCamara()
+
+      const { data } = await api.post('/escanear', { foto_base64: fotoBase64 })
+
+      const materialInfo = data.materialId
+        ? (materiales.find((m) => Number(m.id) === data.materialId) ?? null)
         : null
 
       // Buscar puntos cercanos con geolocalización fresca
       let puntosCercanos = []
-      if (match) {
+      if (materialInfo) {
         try {
           const posicion = await new Promise((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(
@@ -243,7 +150,7 @@ export default function Escanear() {
           })
           setUbicacion(posicion)
           const resp = await api.get('/puntos/cercanos', {
-            params: { material_id: match.materialId, lat: posicion.lat, lng: posicion.lng },
+            params: { material_id: materialInfo.id, lat: posicion.lat, lng: posicion.lng },
           })
           puntosCercanos = resp.data
         } catch (geoErr) {
@@ -251,23 +158,18 @@ export default function Escanear() {
         }
       }
 
-      detenerCamara()
       setResultado({
         fotoBase64,
-        match,
-        material:     materialInfo,
-        detecciones:  formatearDetecciones(deteccionesFinales, 5),
+        material:        materialInfo,
+        materialId:      materialInfo ? materialInfo.id : null,
+        objetoDetectado: data.objetoDetectado,
+        confianza:       data.confianza,
         puntosCercanos,
-        materialId,
-        _debug: {
-          videoSize:           `${video.videoWidth}x${video.videoHeight}`,
-          canvasDetSize:       `${wDet}x${hDet}`,
-          cantidadDetecciones: deteccionesFinales?.length || 0,
-        },
       })
     } catch (err) {
       console.error('Error al detectar:', err)
-      setError(t('escanear.errorProcesarImagen', { mensaje: err.message }))
+      const mensaje = err.response?.data?.error || err.message
+      setError(t('escanear.errorProcesarImagen', { mensaje }))
     } finally {
       setCapturando(false)
     }
@@ -275,13 +177,12 @@ export default function Escanear() {
 
   function reiniciar() {
     setResultado(null)
-    setImagenIA(null)
     setError(null)
     iniciarCamara()
   }
 
-  // ── Pantalla de carga del modelo ──
-  if (cargandoModelo) {
+  // ── Pantalla de carga inicial ──
+  if (cargando) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-3.5rem)] md:min-h-[calc(100vh-4rem)] bg-app p-6">
         <div className="text-center max-w-sm animate-fade-in">
@@ -327,7 +228,7 @@ export default function Escanear() {
           <div className="flex flex-col items-center gap-4">
             <canvas ref={canvasRef} className="hidden" />
 
-            <div className={`w-full rounded-2xl overflow-hidden shadow-lg border-2 border-brand-800/30 bg-brand-900 ${streamActivo ? 'block animate-fade-in' : 'hidden'}`}>
+            <div className={`relative w-full rounded-2xl overflow-hidden shadow-lg border-2 border-brand-800/30 bg-brand-900 ${streamActivo ? 'block animate-fade-in' : 'hidden'}`}>
               <video
                 ref={videoRef}
                 autoPlay
@@ -336,6 +237,16 @@ export default function Escanear() {
                 className="w-full rounded-lg bg-brand-900"
                 style={{ minHeight: '300px', objectFit: 'cover' }}
               />
+              {streamActivo && (
+                <button
+                  onClick={rotarCamara}
+                  aria-label={t('escanear.rotarCamara')}
+                  title={t('escanear.rotarCamara')}
+                  className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+                >
+                  <SwitchCamera size={18} />
+                </button>
+              )}
             </div>
 
             {streamActivo ? (
@@ -381,7 +292,6 @@ export default function Escanear() {
         {/* Con resultado */}
         {resultado && (
           <div className="flex flex-col gap-4 animate-fade-in">
-            {/* Foto capturada (con bbox dibujado si hay match) */}
             <img
               src={resultado.fotoBase64}
               alt="Foto capturada"
@@ -405,14 +315,12 @@ export default function Escanear() {
                     <h2 className="font-display text-xl font-bold text-main leading-tight">
                       {traducirMaterial(t, resultado.material)}
                     </h2>
-                    {resultado.match && (
-                      <p className="text-xs text-muted mt-0.5">
-                        {t('escanear.objetoDetectado')}{' '}
-                        <span className="font-semibold text-soft">
-                          {traducirClase(resultado.match.claseDetectada)}
-                        </span>
-                      </p>
-                    )}
+                    <p className="text-xs text-muted mt-0.5">
+                      {t('escanear.objetoDetectado')}{' '}
+                      <span className="font-semibold text-soft">
+                        {resultado.objetoDetectado}
+                      </span>
+                    </p>
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       <span className="text-sm text-muted">{t('escanear.vaAlContenedor')}</span>
                       <span
@@ -421,16 +329,14 @@ export default function Escanear() {
                         title={resultado.material.color_contenedor}
                       />
                     </div>
-                    {resultado.match && (
-                      <p className="text-xs text-brand-600 font-semibold mt-1 inline-flex items-center gap-1">
-                        <CheckCircle2 size={12} />
-                        {t('escanear.deConfianza', { porcentaje: (resultado.match.confianza * 100).toFixed(0) })}
-                      </p>
-                    )}
+                    <p className="text-xs text-brand-600 font-semibold mt-1 inline-flex items-center gap-1">
+                      <CheckCircle2 size={12} />
+                      {t('escanear.deConfianza', { nivel: t(`escanear.confianza${resultado.confianza.charAt(0).toUpperCase()}${resultado.confianza.slice(1)}`) })}
+                    </p>
                   </div>
                 </div>
 
-                {resultado.match?.confianza_baja && (
+                {resultado.confianza === 'baja' && (
                   <p className="feedback-warning flex items-start gap-2 text-xs px-3 py-2.5 mb-3">
                     <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
                     <span>{t('escanear.deteccionImprecisa')}</span>
@@ -496,10 +402,10 @@ export default function Escanear() {
                 )}
               </div>
 
-            ) : resultado.detecciones.length > 0 ? (
-              /* ── CASO 2: detectó objetos pero no son reciclables ── */
+            ) : (
+              /* ── CASO 2: no es ninguno de los materiales reciclables conocidos ── */
               <div className="bg-surface rounded-2xl shadow-md border border-theme p-5">
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-surface-alt text-brand-600 flex items-center justify-center flex-shrink-0">
                     <Recycle size={26} strokeWidth={1.8} />
                   </div>
@@ -510,74 +416,14 @@ export default function Escanear() {
                     <p className="text-sm text-muted mt-0.5">
                       {t('escanear.noReciclableDescripcion')}
                     </p>
-                  </div>
-                </div>
-                <p className="text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                  {t('escanear.loQueDetectamos')}
-                </p>
-                <ul className="flex flex-col gap-1.5">
-                  {resultado.detecciones.map((det, i) => (
-                    <li
-                      key={i}
-                      className="flex justify-between items-center bg-surface-alt border border-theme rounded-xl px-3 py-2 text-sm"
-                    >
-                      <span className="text-soft truncate mr-2">{det.traducida}</span>
-                      <span className="text-muted font-medium flex-shrink-0">
-                        {(det.confianza * 100).toFixed(1)}%
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-            ) : (
-              /* ── CASO 3: no detectó ningún objeto ── */
-              <div className="bg-surface rounded-2xl shadow-md border border-theme p-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-surface-alt text-muted flex items-center justify-center flex-shrink-0">
-                    <HelpCircle size={26} strokeWidth={1.8} />
-                  </div>
-                  <div>
-                    <h2 className="font-display text-xl font-bold text-main">
-                      {t('escanear.noDetectadoTitulo')}
-                    </h2>
-                    <p className="text-sm text-muted mt-0.5">
-                      {t('escanear.noDetectadoDescripcion')}
-                    </p>
+                    {resultado.objetoDetectado && (
+                      <p className="text-xs text-muted mt-1.5">
+                        {t('escanear.detectamos', { objeto: resultado.objetoDetectado })}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Debug: imagen que vio el modelo (oculto al usuario, ver DEBUG_IA arriba) */}
-            {DEBUG_IA && imagenIA && (
-              <details className="text-sm">
-                <summary className="cursor-pointer text-muted hover:text-soft select-none py-1 transition-colors inline-flex items-center gap-1.5">
-                  <Wrench size={13} />
-                  {t('escanear.debugVerImagen')}
-                </summary>
-                <div className="mt-2 p-3 bg-surface-alt rounded-xl border border-theme">
-                  <p className="text-xs text-muted font-medium mb-0.5">
-                    Modelo: COCO-SSD (mobilenet_v2)
-                  </p>
-                  {resultado?._debug && (
-                    <div className="mt-2 text-xs text-soft space-y-1">
-                      <p>{t('escanear.debugTamanoVideo', { tamano: resultado._debug.videoSize })}</p>
-                      <p>{t('escanear.debugTamanoCanvas', { tamano: resultado._debug.canvasDetSize })}</p>
-                      <p>{t('escanear.debugObjetosDetectados', { cantidad: resultado._debug.cantidadDetecciones })}</p>
-                    </div>
-                  )}
-                  <p className="text-xs text-muted mt-2 mb-2 leading-relaxed">
-                    {t('escanear.debugExplicacion')}
-                  </p>
-                  <img
-                    src={imagenIA}
-                    alt=""
-                    className="border border-theme rounded-lg w-full"
-                    style={{ maxWidth: '400px' }}
-                  />
-                </div>
-              </details>
             )}
 
             <button
