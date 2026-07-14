@@ -88,7 +88,10 @@ export default function CheckinModal({ isOpen, onClose, punto, onSuccess }) {
       canvas.height = Math.round(img.height * ratio)
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
 
-      const detecciones = await modelo.detect(canvas)
+      let detecciones = await modelo.detect(canvas)
+      if (!detecciones || detecciones.length === 0) {
+        detecciones = await modelo.detect(canvas, 20, 0.1)
+      }
       const match = detectarMaterial(detecciones)
 
       if (!match) {

@@ -17,7 +17,7 @@ export default function CameraCapture({ onCapture, onClose, facingMode = 'enviro
           video: {
             facingMode,
             width:  { ideal: 1280, max: 1920 },
-            height: { ideal: 720,  max: 1080 },
+            height: { ideal: 1280, max: 1920 },
           },
           audio: false,
         })

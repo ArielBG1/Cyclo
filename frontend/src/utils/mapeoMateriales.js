@@ -8,6 +8,10 @@ const MAPEO = {
     clases: ['bottle'],
     nombre: 'Plástico PET',
   },
+  2: {
+    clases: ['wine glass'],
+    nombre: 'Vidrio',
+  },
   3: {
     clases: ['book'],
     nombre: 'Papel',

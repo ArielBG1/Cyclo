@@ -72,10 +72,9 @@ export default function Escanear() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode:  'environment',
-          width:       { ideal: 1280, max: 1920 },
-          height:      { ideal: 720,  max: 1080 },
-          aspectRatio: { ideal: 16 / 9 },
+          facingMode: 'environment',
+          width:      { ideal: 1280, max: 1920 },
+          height:     { ideal: 1280, max: 1920 },
         },
         audio: false,
       })
@@ -134,59 +133,70 @@ export default function Escanear() {
         throw new Error(t('escanear.errorVideoNoListo'))
       }
 
-      // Capturar frame completo en canvas original
-      canvas.width  = video.videoWidth
-      canvas.height = video.videoHeight
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(video, 0, 0)
-
-      // Canvas reducido para la IA (max 640px) — mejora detección en móvil
+      // Tamaño reducido para la IA (max 640px)
       const TARGET_MAX = 640
       const ratio = Math.min(TARGET_MAX / video.videoWidth, TARGET_MAX / video.videoHeight, 1)
       const wDet  = Math.round(video.videoWidth  * ratio)
       const hDet  = Math.round(video.videoHeight * ratio)
 
-      const canvasDet = document.createElement('canvas')
-      canvasDet.width  = wDet
-      canvasDet.height = hDet
-      const ctxDet = canvasDet.getContext('2d')
-      ctxDet.imageSmoothingEnabled = true
-      ctxDet.imageSmoothingQuality = 'high'
-      ctxDet.drawImage(video, 0, 0, wDet, hDet)
+      // Ráfaga de varios frames en vez de uno solo: en celular sostenido a mano
+      // es común que el instante exacto del tap tenga desenfoque de movimiento
+      // o el autoenfoque todavía esté ajustando. Probamos unos frames espaciados
+      // y nos quedamos con el de mejor detección. En webcam de PC (imagen fija)
+      // esto no cambia el resultado, solo suma medio segundo.
+      const FRAMES       = 3
+      const INTERVALO_MS = 150
+      const candidatos   = []
 
-      // Esperar que el canvas esté pintado
-      await new Promise((resolve) => requestAnimationFrame(resolve))
+      for (let i = 0; i < FRAMES; i++) {
+        if (i > 0) await new Promise((r) => setTimeout(r, INTERVALO_MS))
 
-      setImagenIA(canvasDet.toDataURL('image/jpeg', 0.85))
+        const full = document.createElement('canvas')
+        full.width  = video.videoWidth
+        full.height = video.videoHeight
+        full.getContext('2d').drawImage(video, 0, 0)
 
-      const tensor = tf.browser.fromPixels(canvasDet)
+        const canvasDet = document.createElement('canvas')
+        canvasDet.width  = wDet
+        canvasDet.height = hDet
+        const ctxDet = canvasDet.getContext('2d')
+        ctxDet.imageSmoothingEnabled = true
+        ctxDet.imageSmoothingQuality = 'high'
+        ctxDet.drawImage(video, 0, 0, wDet, hDet)
 
-      console.log('=== DEBUG DETECCIÓN ===')
+        const tensor = tf.browser.fromPixels(canvasDet)
+        let detecciones = await modelo.detect(tensor)
+        tensor.dispose()
+
+        if (!detecciones || detecciones.length === 0) {
+          const tensor2 = tf.browser.fromPixels(canvasDet)
+          detecciones = await modelo.detect(tensor2, 20, 0.1)
+          tensor2.dispose()
+        }
+
+        candidatos.push({ full, canvasDet, detecciones, score: detecciones?.[0]?.score ?? 0 })
+      }
+
+      candidatos.sort((a, b) => b.score - a.score)
+      const mejor = candidatos[0]
+      const deteccionesFinales = mejor.detecciones
+
+      console.log('=== DEBUG DETECCIÓN (ráfaga) ===')
       console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight)
-      console.log('Canvas detección:', wDet, 'x', hDet)
-      console.log('Tensor shape:', tensor.shape)
-      console.log('Modelo cargado:', !!modelo)
-
-      const detecciones = await modelo.detect(tensor)
-      tensor.dispose()
-
-      console.log('Detecciones recibidas:', detecciones)
-      console.log('Cantidad:', detecciones?.length || 0)
+      console.log('Scores por frame:', candidatos.map((c) => c.score))
+      console.log('Mejor detección:', deteccionesFinales)
       console.log('=== FIN DEBUG ===')
 
-      let deteccionesFinales = detecciones
-      if (!detecciones || detecciones.length === 0) {
-        console.log('Sin detecciones, intentando con umbral más bajo...')
-        const tensor2 = tf.browser.fromPixels(canvasDet)
-        const detecciones2 = await modelo.detect(tensor2, 20, 0.1)
-        tensor2.dispose()
-        console.log('Segundo intento (umbral 0.1):', detecciones2)
-        deteccionesFinales = detecciones2
-      }
+      setImagenIA(mejor.canvasDet.toDataURL('image/jpeg', 0.85))
 
       const match = detectarMaterial(deteccionesFinales)
 
-      // Dibujar bbox escalado al canvas original si hay match
+      // Dibujar el frame elegido + bbox en el canvas visible
+      canvas.width  = mejor.full.width
+      canvas.height = mejor.full.height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(mejor.full, 0, 0)
+
       if (match?.bbox) {
         const escala           = video.videoWidth / wDet
         const [bx, by, bw, bh] = match.bbox.map((v) => v * escala)
