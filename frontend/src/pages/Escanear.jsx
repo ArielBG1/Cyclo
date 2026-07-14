@@ -298,7 +298,7 @@ export default function Escanear() {
                 ) : (
                   !error && (
                     <button
-                      onClick={iniciarCamara}
+                      onClick={() => iniciarCamara()}
                       className="w-full flex items-center justify-center gap-3 bg-brand-500 hover:bg-brand-400 text-white font-bold py-8 rounded-2xl text-lg shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
                     >
                       <Camera size={24} />
