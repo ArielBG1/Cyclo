@@ -1,5 +1,6 @@
-import { MapPin, Clock, Navigation, Check } from 'lucide-react'
+import { MapPin, Clock, Navigation, Check, LogIn } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { calcularDistancia, formatearDistancia } from '../utils/distancia'
@@ -12,6 +13,7 @@ export default function PopupPunto({ punto, ubicacionUsuario, onReciclar }) {
   const { usuario } = useAuth()
   const { theme } = useTheme()
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const isDark = theme === 'dark'
 
   const distancia =
@@ -149,42 +151,38 @@ export default function PopupPunto({ punto, ubicacionUsuario, onReciclar }) {
         </a>
 
         <button
-          disabled={!usuario}
-          onClick={() => onReciclar && onReciclar(punto)}
+          onClick={() => (usuario ? onReciclar && onReciclar(punto) : navigate('/login'))}
           title={usuario ? t('popup.titleReciclarAqui') : t('popup.titleIniciaSesion')}
           style={{
             flex: 1,
-            backgroundColor: usuario ? '#1FAA59' : '#C7D0CC',
-            color: usuario ? '#fff' : '#6B7872',
+            backgroundColor: '#1FAA59',
+            color: '#fff',
             border: 'none',
             padding: '8px 6px',
             borderRadius: '10px',
             fontSize: '12px',
             fontWeight: '600',
-            cursor: usuario ? 'pointer' : 'not-allowed',
-            opacity: usuario ? 1 : 0.6,
+            cursor: 'pointer',
             transition: 'background-color 0.2s, transform 0.18s, box-shadow 0.18s',
-            boxShadow: usuario ? '0 1px 2px rgba(31,170,89,0.18)' : 'none',
+            boxShadow: '0 1px 2px rgba(31,170,89,0.18)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '5px',
           }}
           onMouseEnter={(e) => {
-            if (!usuario) return
             e.currentTarget.style.backgroundColor = '#3FC380'
             e.currentTarget.style.transform = 'translateY(-1px)'
             e.currentTarget.style.boxShadow = '0 6px 14px rgba(31,170,89,0.30)'
           }}
           onMouseLeave={(e) => {
-            if (!usuario) return
             e.currentTarget.style.backgroundColor = '#1FAA59'
             e.currentTarget.style.transform = 'translateY(0)'
             e.currentTarget.style.boxShadow = '0 1px 2px rgba(31,170,89,0.18)'
           }}
         >
-          <Check size={12} />
-          {t('popup.reciclarAqui')}
+          {usuario ? <Check size={12} /> : <LogIn size={12} />}
+          {usuario ? t('popup.reciclarAqui') : t('popup.iniciaSesionParaReciclar')}
         </button>
       </div>
     </div>

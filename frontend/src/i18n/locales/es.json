@@ -75,7 +75,8 @@
     "comoLlegar": "Cómo llegar",
     "reciclarAqui": "Reciclar aquí",
     "titleReciclarAqui": "Hacer check-in en este punto",
-    "titleIniciaSesion": "Iniciá sesión para reciclar"
+    "titleIniciaSesion": "Iniciá sesión para reciclar",
+    "iniciaSesionParaReciclar": "Iniciá sesión"
   },
   "escanear": {
     "cargandoModeloTitulo": "Cargando CycloScan...",

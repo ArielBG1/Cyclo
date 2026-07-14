@@ -4,7 +4,7 @@
 // sin tocarlas.
 export function urlBackend(path) {
   if (!path) return ''
-  if (/^https?:\/\//i.test(path)) return path
+  if (/^https?:\/\//i.test(path) || path.startsWith('data:')) return path
   const apiUrl = import.meta.env.VITE_API_URL || ''
   const base = apiUrl.replace(/\/api\/?$/, '')
   const cleanPath = path.startsWith('/') ? path : `/${path}`

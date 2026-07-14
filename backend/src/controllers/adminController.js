@@ -229,10 +229,10 @@ export async function estadisticasGenerales(req, res) {
       SELECT
         (SELECT COUNT(*)::int FROM usuarios)                                       AS total_usuarios,
         (SELECT COUNT(*)::int FROM puntos_reciclaje)                                AS total_puntos,
-        (SELECT COUNT(*)::int FROM checkins)                                        AS total_checkins,
-        COALESCE((SELECT SUM(cantidad_estimada_kg) FROM checkins), 0)::float        AS total_kg_reciclado,
-        COALESCE((SELECT SUM(puntos_ganados) FROM checkins), 0)::int                AS total_puntos_otorgados,
-        (SELECT COUNT(*)::int FROM checkins WHERE creado_en::date = CURRENT_DATE)   AS checkins_hoy
+        (SELECT COUNT(*)::int FROM checkins WHERE estado = 'activo')                AS total_checkins,
+        COALESCE((SELECT SUM(cantidad_estimada_kg) FROM checkins WHERE estado = 'activo'), 0)::float AS total_kg_reciclado,
+        COALESCE((SELECT SUM(puntos_ganados) FROM checkins WHERE estado = 'activo'), 0)::int         AS total_puntos_otorgados,
+        (SELECT COUNT(*)::int FROM checkins WHERE estado = 'activo' AND creado_en::date = CURRENT_DATE) AS checkins_hoy
     `)
     res.json(result.rows[0])
   } catch (err) {
@@ -250,7 +250,7 @@ export async function checkinsPorPunto(req, res) {
         COUNT(c.id)::int                                  AS cantidad_checkins,
         COALESCE(SUM(c.cantidad_estimada_kg), 0)::float   AS total_kg
       FROM puntos_reciclaje p
-      LEFT JOIN checkins c ON p.id = c.punto_id
+      LEFT JOIN checkins c ON p.id = c.punto_id AND c.estado = 'activo'
       GROUP BY p.id, p.nombre
       ORDER BY cantidad_checkins DESC, p.nombre ASC
     `)
@@ -270,7 +270,7 @@ export async function materialesMasReciclados(req, res) {
         COUNT(c.id)::int                                  AS cantidad_checkins,
         COALESCE(SUM(c.cantidad_estimada_kg), 0)::float   AS total_kg
       FROM materiales m
-      LEFT JOIN checkins c ON m.id = c.material_id
+      LEFT JOIN checkins c ON m.id = c.material_id AND c.estado = 'activo'
       GROUP BY m.id, m.nombre, m.color_contenedor
       ORDER BY total_kg DESC, m.id ASC
     `)
@@ -287,7 +287,7 @@ export async function rankingUsuarios(req, res) {
     const result = await pool.query(`
       SELECT
         id, nombre, puntos_totales, nivel,
-        (SELECT COUNT(*)::int FROM checkins WHERE usuario_id = usuarios.id) AS cantidad_checkins
+        (SELECT COUNT(*)::int FROM checkins WHERE usuario_id = usuarios.id AND estado = 'activo') AS cantidad_checkins
       FROM usuarios
       ORDER BY puntos_totales DESC, id ASC
       LIMIT 10
@@ -305,7 +305,7 @@ export async function checkinsEnElTiempo(req, res) {
     const result = await pool.query(`
       SELECT creado_en::date AS fecha, COUNT(*)::int AS cantidad
       FROM checkins
-      WHERE creado_en > NOW() - INTERVAL '30 days'
+      WHERE estado = 'activo' AND creado_en > NOW() - INTERVAL '30 days'
       GROUP BY creado_en::date
       ORDER BY fecha ASC
     `)

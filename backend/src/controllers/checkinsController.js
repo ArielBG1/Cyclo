@@ -1,20 +1,19 @@
 import pool from '../config/db.js'
-import fs from 'fs'
-import path from 'path'
 import { NIVELES, calcularNivel } from '../utils/niveles.js'
+import { cumpleCondicion } from '../utils/logros.js'
 
 // ── Endpoints del perfil de usuario ──────────────────────────────────────
 
 // GET /api/checkins/mis-checkins
-// Devuelve todos los check-ins del usuario logueado con datos del punto y
-// material asociados, ordenados por fecha descendente.
+// Devuelve todos los check-ins activos del usuario logueado con datos del
+// punto y material asociados, ordenados por fecha descendente.
 export async function listarCheckinsUsuario(req, res) {
   const usuario_id = req.usuario.id
   try {
     const result = await pool.query(
       `
       SELECT
-        c.id, c.cantidad_estimada_kg, c.puntos_ganados, c.foto_url, c.creado_en,
+        c.id, c.cantidad_estimada_kg, c.puntos_ganados, c.foto_url, c.foto_base64, c.creado_en,
         c.latitud, c.longitud,
         p.id   AS punto_id,
         p.nombre AS punto_nombre,
@@ -26,12 +25,19 @@ export async function listarCheckinsUsuario(req, res) {
       FROM checkins c
       INNER JOIN puntos_reciclaje p ON c.punto_id = p.id
       INNER JOIN materiales m       ON c.material_id = m.id
-      WHERE c.usuario_id = $1
+      WHERE c.usuario_id = $1 AND c.estado = 'activo'
       ORDER BY c.creado_en DESC
       `,
       [usuario_id]
     )
-    res.json(result.rows)
+    // La foto puede venir guardada en la DB (foto_base64, checkins nuevos) o en
+    // disco (foto_url, checkins viejos) — se prioriza la de la DB porque el
+    // filesystem de Render es efímero y se pierde en cada redeploy.
+    const rows = result.rows.map(({ foto_base64, ...c }) => ({
+      ...c,
+      foto_url: foto_base64 ? `data:image/jpeg;base64,${foto_base64}` : c.foto_url,
+    }))
+    res.json(rows)
   } catch (err) {
     console.error('Error en listarCheckinsUsuario:', err)
     res.status(500).json({ error: err.message })
@@ -52,7 +58,7 @@ export async function estadisticasUsuario(req, res) {
           COALESCE(SUM(cantidad_estimada_kg), 0)::float AS total_kg,
           COUNT(DISTINCT punto_id)::int                 AS puntos_distintos
         FROM checkins
-        WHERE usuario_id = $1
+        WHERE usuario_id = $1 AND estado = 'activo'
         `,
         [usuario_id]
       ),
@@ -65,7 +71,7 @@ export async function estadisticasUsuario(req, res) {
         SELECT m.id, m.nombre, m.color_contenedor, COUNT(*)::int AS veces
         FROM checkins c
         INNER JOIN materiales m ON c.material_id = m.id
-        WHERE c.usuario_id = $1
+        WHERE c.usuario_id = $1 AND c.estado = 'activo'
         GROUP BY m.id, m.nombre, m.color_contenedor
         ORDER BY veces DESC
         LIMIT 1
@@ -149,10 +155,10 @@ export async function crearCheckin(req, res) {
       })
     }
 
-    // 3. Cooldown: mismo usuario + mismo punto en la última hora
+    // 3. Cooldown: mismo usuario + mismo punto en la última hora (solo check-ins activos)
     const coolRes = await client.query(
       `SELECT 1 FROM checkins
-       WHERE usuario_id = $1 AND punto_id = $2
+       WHERE usuario_id = $1 AND punto_id = $2 AND estado = 'activo'
          AND creado_en > NOW() - INTERVAL '1 hour'`,
       [usuario_id, punto_id_int]
     )
@@ -160,10 +166,11 @@ export async function crearCheckin(req, res) {
       return res.status(429).json({ error: '¡Ya reciclaste aquí hace menos de 1 hora! Volvé más tarde.' })
     }
 
-    // 4. Límite de 5 check-ins por día
+    // 4. Límite de 5 check-ins por día (solo check-ins activos)
     const diaRes = await client.query(
       `SELECT COUNT(*)::int AS total FROM checkins
-       WHERE usuario_id = $1 AND creado_en > NOW() - INTERVAL '24 hours'`,
+       WHERE usuario_id = $1 AND estado = 'activo'
+         AND creado_en > NOW() - INTERVAL '24 hours'`,
       [usuario_id]
     )
     if (diaRes.rows[0].total >= 5) {
@@ -177,22 +184,19 @@ export async function crearCheckin(req, res) {
     }
     const puntos_ganados = Math.round(cantidad * matRes.rows[0].puntos_por_kg)
 
-    // 6. Guardar foto en uploads/
-    const uploadsDir = path.join(process.cwd(), 'uploads')
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
-    const base64Data    = foto_base64.replace(/^data:image\/\w+;base64,/, '')
-    const nombreArchivo = `checkin_${usuario_id}_${Date.now()}.jpg`
-    fs.writeFileSync(path.join(uploadsDir, nombreArchivo), Buffer.from(base64Data, 'base64'))
-    const foto_url = `/uploads/${nombreArchivo}`
+    // 6. Foto: se guarda en la DB (foto_base64), no en disco — el filesystem
+    // de Render es efímero y se pierde en cada redeploy/reinicio.
+    const fotoData = foto_base64.replace(/^data:image\/\w+;base64,/, '')
 
     // 7. Transacción: insertar checkin + actualizar usuario + logros
     await client.query('BEGIN')
 
     const checkinRes = await client.query(
       `INSERT INTO checkins
-         (usuario_id, punto_id, material_id, cantidad_estimada_kg, foto_url, puntos_ganados, latitud, longitud)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [usuario_id, punto_id_int, material_id_int, cantidad, foto_url, puntos_ganados, latitud, longitud]
+         (usuario_id, punto_id, material_id, cantidad_estimada_kg, foto_base64, puntos_ganados, latitud, longitud)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING id, usuario_id, punto_id, material_id, cantidad_estimada_kg, puntos_ganados, latitud, longitud, creado_en`,
+      [usuario_id, punto_id_int, material_id_int, cantidad, fotoData, puntos_ganados, latitud, longitud]
     )
 
     const updRes = await client.query(
@@ -211,14 +215,14 @@ export async function crearCheckin(req, res) {
     }
     usu.subio_de_nivel = subioDeNivel
 
-    // 8. Verificar logros (stats incluyen el checkin recién insertado)
+    // 8. Verificar logros (stats incluyen el checkin recién insertado, solo activos)
     const statsRes = await client.query(
       `SELECT COUNT(*)::int AS total_checkins,
               COUNT(DISTINCT punto_id)::int AS puntos_distintos
-       FROM checkins WHERE usuario_id = $1`,
+       FROM checkins WHERE usuario_id = $1 AND estado = 'activo'`,
       [usuario_id]
     )
-    const stats = statsRes.rows[0]
+    const stats = { ...statsRes.rows[0], puntos_totales: nuevoPuntos }
 
     const logrosYaRes = await client.query(
       'SELECT logro_id FROM usuarios_logros WHERE usuario_id = $1',
@@ -231,13 +235,7 @@ export async function crearCheckin(req, res) {
 
     for (const logro of todosRes.rows) {
       if (logrosYa.has(logro.id)) continue
-      const cond = logro.condicion
-      let cumple = false
-      if      (cond.startsWith('checkins >='))        cumple = stats.total_checkins >= parseInt(cond.split('>=')[1])
-      else if (cond.startsWith('puntos_totales >='))   cumple = nuevoPuntos >= parseInt(cond.split('>=')[1])
-      else if (cond.startsWith('puntos_distintos >=')) cumple = stats.puntos_distintos >= parseInt(cond.split('>=')[1])
-
-      if (cumple) {
+      if (cumpleCondicion(logro.condicion, stats)) {
         await client.query(
           'INSERT INTO usuarios_logros (usuario_id, logro_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
           [usuario_id, logro.id]

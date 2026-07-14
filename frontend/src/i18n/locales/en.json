@@ -75,7 +75,8 @@
     "comoLlegar": "Directions",
     "reciclarAqui": "Recycle here",
     "titleReciclarAqui": "Check in at this point",
-    "titleIniciaSesion": "Sign in to recycle"
+    "titleIniciaSesion": "Sign in to recycle",
+    "iniciaSesionParaReciclar": "Sign in"
   },
   "escanear": {
     "cargandoModeloTitulo": "Loading CycloScan...",

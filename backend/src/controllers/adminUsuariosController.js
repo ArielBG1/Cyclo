@@ -9,7 +9,7 @@ export async function listarUsuarios(req, res) {
     const result = await pool.query(`
       SELECT
         u.id, u.nombre, u.email, u.puntos_totales, u.nivel, u.rol, u.creado_en,
-        (SELECT COUNT(*)::int FROM checkins c WHERE c.usuario_id = u.id) AS cantidad_checkins
+        (SELECT COUNT(*)::int FROM checkins c WHERE c.usuario_id = u.id AND c.estado = 'activo') AS cantidad_checkins
       FROM usuarios u
       ORDER BY u.creado_en DESC
     `)

@@ -75,7 +75,8 @@
     "comoLlegar": "길찾기",
     "reciclarAqui": "여기에서 재활용",
     "titleReciclarAqui": "이 거점에 체크인하기",
-    "titleIniciaSesion": "재활용하려면 로그인하세요"
+    "titleIniciaSesion": "재활용하려면 로그인하세요",
+    "iniciaSesionParaReciclar": "로그인하기"
   },
   "escanear": {
     "cargandoModeloTitulo": "CycloScan 불러오는 중...",
