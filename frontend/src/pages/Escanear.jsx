@@ -1,17 +1,25 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Camera, RotateCcw, AlertCircle, MapPin, Navigation, Bot,
-  Recycle, Lightbulb, CheckCircle2, AlertTriangle, SwitchCamera,
+  Recycle, HelpCircle, Wrench, Lightbulb, CheckCircle2, AlertTriangle, SwitchCamera,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { detectarMaterial, traducirClase, formatearDetecciones } from '../utils/mapeoMateriales'
+import { cargarModelo, redimensionarParaIA, detectarObjetos } from '../utils/cycloScan'
 import { traducirMaterial, traducirInstrucciones } from '../utils/materialKey'
 import { colorContenedor } from '../utils/colorContenedor'
 import { IconoMaterial } from '../utils/iconoMaterial'
 import api from '../services/api'
 
+// Cambiar a true solo para diagnosticar problemas de detección de CycloScan.
+// Cuando está activado se muestra el bloque debug con la imagen procesada,
+// dimensiones y cantidad de objetos detectados.
+const DEBUG_IA = false
+
 export default function Escanear() {
   const { t } = useTranslation()
-  const [cargando, setCargando] = useState(true)
+  const [cargandoModelo, setCargandoModelo] = useState(true)
+  const [modelo, setModelo] = useState(null)
   const [materiales, setMateriales] = useState([])
   const [streamActivo, setStreamActivo] = useState(false)
   const [capturando, setCapturando] = useState(false)
@@ -19,23 +27,34 @@ export default function Escanear() {
   const [error, setError] = useState(null)
   const [ubicacion, setUbicacion] = useState(null)
   const [facingMode, setFacingMode] = useState('environment')  // 'environment' = trasera, 'user' = frontal
+  const [imagenIA, setImagenIA] = useState(null)  // debug: imagen limpia que vio el modelo
 
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
+  const rafagaRef = useRef(false)  // evita doble tap mientras se capturan los frames
 
   useEffect(() => {
+    async function iniciarModelo() {
+      try {
+        setModelo(await cargarModelo())
+      } catch {
+        setError(t('escanear.errorModelo'))
+      } finally {
+        setCargandoModelo(false)
+      }
+    }
+
     async function cargarMateriales() {
       try {
         const res = await api.get('/materiales')
         setMateriales(res.data)
       } catch {
-        setError(t('escanear.errorModelo'))
-      } finally {
-        setCargando(false)
+        // Sin info de materiales no es crítico
       }
     }
 
+    iniciarModelo()
     cargarMateriales()
   }, [])
 
@@ -133,8 +152,8 @@ export default function Escanear() {
   }
 
   async function capturarYDetectar() {
-    if (!videoRef.current || !canvasRef.current) return
-    setCapturando(true)
+    if (!modelo || !videoRef.current || !canvasRef.current || rafagaRef.current) return
+    rafagaRef.current = true
     setError(null)
 
     try {
@@ -145,22 +164,92 @@ export default function Escanear() {
         throw new Error(t('escanear.errorVideoNoListo'))
       }
 
-      canvas.width  = video.videoWidth
-      canvas.height = video.videoHeight
-      canvas.getContext('2d').drawImage(video, 0, 0)
+      // Ráfaga de varios frames en vez de uno solo: en celular sostenido a mano
+      // es común que el instante exacto del tap tenga desenfoque de movimiento
+      // o el autoenfoque todavía esté ajustando. Capturamos unos frames
+      // espaciados y después nos quedamos con el de mejor detección.
+      const FRAMES       = 3
+      const INTERVALO_MS = 150
+      const frames       = []
+
+      for (let i = 0; i < FRAMES; i++) {
+        if (i > 0) await new Promise((r) => setTimeout(r, INTERVALO_MS))
+        const full = document.createElement('canvas')
+        full.width  = video.videoWidth
+        full.height = video.videoHeight
+        full.getContext('2d').drawImage(video, 0, 0)
+        frames.push(full)
+      }
+
+      // Los frames ya están capturados: cerramos la cámara y mostramos
+      // "Analizando..." mientras corre el modelo.
+      detenerCamara()
+      setCapturando(true)
+      await new Promise((r) => requestAnimationFrame(() => r()))
+
+      const candidatos = []
+      for (const full of frames) {
+        const canvasDet   = redimensionarParaIA(full, full.width, full.height)
+        const detecciones = await detectarObjetos(modelo, canvasDet)
+        candidatos.push({ full, canvasDet, detecciones, score: detecciones[0]?.score ?? 0 })
+      }
+
+      candidatos.sort((a, b) => b.score - a.score)
+      const mejor = candidatos[0]
+      const deteccionesFinales = mejor.detecciones
+
+      if (DEBUG_IA) {
+        console.log('=== DEBUG DETECCIÓN (ráfaga) ===')
+        console.log('Video dimensions:', mejor.full.width, 'x', mejor.full.height)
+        console.log('Scores por frame:', candidatos.map((c) => c.score))
+        console.log('Mejor detección:', deteccionesFinales)
+        setImagenIA(mejor.canvasDet.toDataURL('image/jpeg', 0.85))
+      }
+
+      const match = detectarMaterial(deteccionesFinales)
+
+      // Dibujar el frame elegido + bbox en el canvas visible
+      canvas.width  = mejor.full.width
+      canvas.height = mejor.full.height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(mejor.full, 0, 0)
+
+      if (match?.bbox) {
+        const escala           = mejor.full.width / mejor.canvasDet.width
+        const [bx, by, bw, bh] = match.bbox.map((v) => v * escala)
+        const grosor           = Math.max(3, Math.round(canvas.width / 400))
+        const fontSize         = Math.max(14, Math.round(canvas.width / 55))
+        const label            = `${match.claseTraducida} ${Math.round(match.confianza * 100)}%`
+
+        ctx.font     = `bold ${fontSize}px Inter, system-ui, sans-serif`
+        const textW  = ctx.measureText(label).width
+        const padH   = 6
+        const labelH = fontSize + padH * 2
+        const labelX = Math.max(0, Math.min(bx, canvas.width - textW - 12))
+        const labelY = by > labelH + grosor + 2 ? by - grosor - 2 : by + bh + grosor + 2
+
+        ctx.strokeStyle = '#1FAA59'
+        ctx.lineWidth   = grosor
+        ctx.lineJoin    = 'round'
+        ctx.strokeRect(bx, by, bw, bh)
+
+        ctx.fillStyle = '#1FAA59'
+        ctx.fillRect(labelX, labelY - labelH, textW + 12, labelH)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText(label, labelX + 6, labelY - padH)
+      }
+
       const fotoBase64 = canvas.toDataURL('image/jpeg', 0.85)
 
-      detenerCamara()
-
-      const { data } = await api.post('/escanear', { foto_base64: fotoBase64 })
-
-      const materialInfo = data.materialId
-        ? (materiales.find((m) => Number(m.id) === data.materialId) ?? null)
+      // Buscar material en DB
+      const materialId   = match?.materialId ?? null
+      const materialInfo = materialId
+        ? (materiales.find((m) => Number(m.id) === materialId) ?? null)
         : null
 
       // Buscar puntos cercanos con geolocalización fresca
       let puntosCercanos = []
-      if (materialInfo) {
+      if (match) {
         try {
           const posicion = await new Promise((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(
@@ -171,7 +260,7 @@ export default function Escanear() {
           })
           setUbicacion(posicion)
           const resp = await api.get('/puntos/cercanos', {
-            params: { material_id: materialInfo.id, lat: posicion.lat, lng: posicion.lng },
+            params: { material_id: match.materialId, lat: posicion.lat, lng: posicion.lng },
           })
           puntosCercanos = resp.data
         } catch (geoErr) {
@@ -181,29 +270,35 @@ export default function Escanear() {
 
       setResultado({
         fotoBase64,
-        material:        materialInfo,
-        materialId:      materialInfo ? materialInfo.id : null,
-        objetoDetectado: data.objetoDetectado,
-        confianza:       data.confianza,
+        match,
+        material:    materialInfo,
+        detecciones: formatearDetecciones(deteccionesFinales, 5),
         puntosCercanos,
+        materialId,
+        _debug: {
+          videoSize:           `${mejor.full.width}x${mejor.full.height}`,
+          canvasDetSize:       `${mejor.canvasDet.width}x${mejor.canvasDet.height}`,
+          cantidadDetecciones: deteccionesFinales.length,
+        },
       })
     } catch (err) {
       console.error('Error al detectar:', err)
-      const mensaje = err.response?.data?.error || err.message
-      setError(t('escanear.errorProcesarImagen', { mensaje }))
+      setError(t('escanear.errorProcesarImagen', { mensaje: err.message }))
     } finally {
       setCapturando(false)
+      rafagaRef.current = false
     }
   }
 
   function reiniciar() {
     setResultado(null)
+    setImagenIA(null)
     setError(null)
     iniciarCamara()
   }
 
-  // ── Pantalla de carga inicial ──
-  if (cargando) {
+  // ── Pantalla de carga del modelo ──
+  if (cargandoModelo) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-3.5rem)] md:min-h-[calc(100vh-4rem)] bg-app p-6">
         <div className="text-center max-w-sm animate-fade-in">
@@ -250,7 +345,7 @@ export default function Escanear() {
             <canvas ref={canvasRef} className="hidden" />
 
             {capturando ? (
-              /* ── Analizando con IA (foto ya capturada, esperando al backend) ── */
+              /* ── Analizando con IA (frames ya capturados, corriendo el modelo) ── */
               <div className="w-full flex flex-col items-center justify-center gap-4 py-16 animate-fade-in">
                 <Bot size={56} className="text-brand-500 animate-gentle-pulse" strokeWidth={1.5} />
                 <p className="font-display text-lg font-bold text-main">{t('escanear.analizando')}</p>
@@ -337,12 +432,14 @@ export default function Escanear() {
                     <h2 className="font-display text-xl font-bold text-main leading-tight">
                       {traducirMaterial(t, resultado.material)}
                     </h2>
-                    <p className="text-xs text-muted mt-0.5">
-                      {t('escanear.objetoDetectado')}{' '}
-                      <span className="font-semibold text-soft">
-                        {resultado.objetoDetectado}
-                      </span>
-                    </p>
+                    {resultado.match && (
+                      <p className="text-xs text-muted mt-0.5">
+                        {t('escanear.objetoDetectado')}{' '}
+                        <span className="font-semibold text-soft">
+                          {traducirClase(resultado.match.claseDetectada)}
+                        </span>
+                      </p>
+                    )}
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       <span className="text-sm text-muted">{t('escanear.vaAlContenedor')}</span>
                       <span
@@ -351,14 +448,16 @@ export default function Escanear() {
                         title={resultado.material.color_contenedor}
                       />
                     </div>
-                    <p className="text-xs text-brand-600 font-semibold mt-1 inline-flex items-center gap-1">
-                      <CheckCircle2 size={12} />
-                      {t('escanear.deConfianza', { nivel: t(`escanear.confianza${resultado.confianza.charAt(0).toUpperCase()}${resultado.confianza.slice(1)}`) })}
-                    </p>
+                    {resultado.match && (
+                      <p className="text-xs text-brand-600 font-semibold mt-1 inline-flex items-center gap-1">
+                        <CheckCircle2 size={12} />
+                        {t('escanear.deConfianza', { porcentaje: (resultado.match.confianza * 100).toFixed(0) })}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                {resultado.confianza === 'baja' && (
+                {resultado.match?.confianza_baja && (
                   <p className="feedback-warning flex items-start gap-2 text-xs px-3 py-2.5 mb-3">
                     <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
                     <span>{t('escanear.deteccionImprecisa')}</span>
@@ -424,10 +523,10 @@ export default function Escanear() {
                 )}
               </div>
 
-            ) : (
-              /* ── CASO 2: no es ninguno de los materiales reciclables conocidos ── */
+            ) : resultado.detecciones.length > 0 ? (
+              /* ── CASO 2: detectó objetos pero no son reciclables ── */
               <div className="bg-surface rounded-2xl shadow-md border border-theme p-5">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-2xl bg-surface-alt text-brand-600 flex items-center justify-center flex-shrink-0">
                     <Recycle size={26} strokeWidth={1.8} />
                   </div>
@@ -438,14 +537,74 @@ export default function Escanear() {
                     <p className="text-sm text-muted mt-0.5">
                       {t('escanear.noReciclableDescripcion')}
                     </p>
-                    {resultado.objetoDetectado && (
-                      <p className="text-xs text-muted mt-1.5">
-                        {t('escanear.detectamos', { objeto: resultado.objetoDetectado })}
-                      </p>
-                    )}
+                  </div>
+                </div>
+                <p className="text-xs font-bold text-muted uppercase tracking-wider mb-2">
+                  {t('escanear.loQueDetectamos')}
+                </p>
+                <ul className="flex flex-col gap-1.5">
+                  {resultado.detecciones.map((det, i) => (
+                    <li
+                      key={i}
+                      className="flex justify-between items-center bg-surface-alt border border-theme rounded-xl px-3 py-2 text-sm"
+                    >
+                      <span className="text-soft truncate mr-2">{det.traducida}</span>
+                      <span className="text-muted font-medium flex-shrink-0">
+                        {(det.confianza * 100).toFixed(1)}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+            ) : (
+              /* ── CASO 3: no detectó ningún objeto ── */
+              <div className="bg-surface rounded-2xl shadow-md border border-theme p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-surface-alt text-muted flex items-center justify-center flex-shrink-0">
+                    <HelpCircle size={26} strokeWidth={1.8} />
+                  </div>
+                  <div>
+                    <h2 className="font-display text-xl font-bold text-main">
+                      {t('escanear.noDetectadoTitulo')}
+                    </h2>
+                    <p className="text-sm text-muted mt-0.5">
+                      {t('escanear.noDetectadoDescripcion')}
+                    </p>
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Debug: imagen que vio el modelo (oculto al usuario, ver DEBUG_IA arriba) */}
+            {DEBUG_IA && imagenIA && (
+              <details className="text-sm">
+                <summary className="cursor-pointer text-muted hover:text-soft select-none py-1 transition-colors inline-flex items-center gap-1.5">
+                  <Wrench size={13} />
+                  {t('escanear.debugVerImagen')}
+                </summary>
+                <div className="mt-2 p-3 bg-surface-alt rounded-xl border border-theme">
+                  <p className="text-xs text-muted font-medium mb-0.5">
+                    Modelo: COCO-SSD (mobilenet_v2)
+                  </p>
+                  {resultado?._debug && (
+                    <div className="mt-2 text-xs text-soft space-y-1">
+                      <p>{t('escanear.debugTamanoVideo', { tamano: resultado._debug.videoSize })}</p>
+                      <p>{t('escanear.debugTamanoCanvas', { tamano: resultado._debug.canvasDetSize })}</p>
+                      <p>{t('escanear.debugObjetosDetectados', { cantidad: resultado._debug.cantidadDetecciones })}</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted mt-2 mb-2 leading-relaxed">
+                    {t('escanear.debugExplicacion')}
+                  </p>
+                  <img
+                    src={imagenIA}
+                    alt=""
+                    className="border border-theme rounded-lg w-full"
+                    style={{ maxWidth: '400px' }}
+                  />
+                </div>
+              </details>
             )}
 
             <button

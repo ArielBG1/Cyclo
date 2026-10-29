@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Camera, Check, AlertCircle, X, Trophy, PartyPopper } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { detectarMaterial } from '../utils/mapeoMateriales'
+import { cargarModelo, cargarImagen, redimensionarParaIA, detectarObjetos } from '../utils/cycloScan'
 import { traducirMaterial, claveMaterial, traducirLogro } from '../utils/materialKey'
 import { colorContenedor, textoSobreColor } from '../utils/colorContenedor'
 import { IconoMaterial } from '../utils/iconoMaterial'
@@ -29,6 +31,7 @@ export default function CheckinModal({ isOpen, onClose, punto, onSuccess }) {
   const [exito,                setExito]                = useState(null)
   const [errorMsg,             setErrorMsg]             = useState(null)
   const [toastMsg,             setToastMsg]             = useState(null)
+  const [cargandoModelo,       setCargandoModelo]       = useState(false)
   const [analizandoIA,         setAnalizandoIA]         = useState(false)
 
   // Redirigir si no hay sesión (defensivo)
@@ -46,28 +49,43 @@ export default function CheckinModal({ isOpen, onClose, punto, onSuccess }) {
     setTimeout(() => setToastMsg(null), 4500)
   }
 
-  function abrirCamaraIA() {
-    setModoCamera('ia')
+  // Carga CycloScan (COCO-SSD) antes de abrir la cámara. Si el usuario ya
+  // pasó por /escanear el modelo está en memoria y esto es instantáneo.
+  async function abrirCamaraIA() {
+    setCargandoModelo(true)
+    try {
+      await cargarModelo()
+      setModoCamera('ia')
+    } catch (err) {
+      console.error('Error al cargar CycloScan:', err)
+      mostrarToast(t('checkin.toastErrorProcesar'))
+    } finally {
+      setCargandoModelo(false)
+    }
   }
 
   async function handleCapturaIA(base64) {
     setModoCamera(null)
     setAnalizandoIA(true)
     try {
-      const { data } = await api.post('/escanear', { foto_base64: base64 })
+      const modelo      = await cargarModelo()
+      const img         = await cargarImagen(base64)
+      const canvas      = redimensionarParaIA(img, img.width, img.height)
+      const detecciones = await detectarObjetos(modelo, canvas)
+      const match       = detectarMaterial(detecciones)
 
-      if (!data.materialId) {
+      if (!match) {
         mostrarToast(t('checkin.toastNoIdentificado'))
         return
       }
 
       // Nombre del material detectado en el idioma actual
-      const claveMat = claveMaterial(data.materialId)
+      const claveMat = claveMaterial(match.materialId)
       const nombreDetectado = claveMat
-        ? t(`materiales.${claveMat}`, { defaultValue: data.objetoDetectado })
-        : data.objetoDetectado
+        ? t(`materiales.${claveMat}`, { defaultValue: match.nombreMaterial })
+        : match.nombreMaterial
 
-      const materialEnPunto = punto.materiales.find((m) => Number(m.id) === data.materialId)
+      const materialEnPunto = punto.materiales.find((m) => Number(m.id) === match.materialId)
       if (!materialEnPunto) {
         const aceptados = punto.materiales.map((m) => traducirMaterial(t, m)).join(', ')
         mostrarToast(t('checkin.toastNoAcepta', { material: nombreDetectado, lista: aceptados }))
@@ -78,7 +96,7 @@ export default function CheckinModal({ isOpen, onClose, punto, onSuccess }) {
       mostrarToast(t('checkin.toastDetectamos', { material: nombreDetectado }), 'success')
     } catch (err) {
       console.error('Error al detectar material:', err)
-      mostrarToast(err.response?.data?.error || t('checkin.toastErrorProcesar'))
+      mostrarToast(t('checkin.toastErrorProcesar'))
     } finally {
       setAnalizandoIA(false)
     }
@@ -278,7 +296,7 @@ export default function CheckinModal({ isOpen, onClose, punto, onSuccess }) {
 
                 <button
                   onClick={abrirCamaraIA}
-                  disabled={analizandoIA}
+                  disabled={cargandoModelo || analizandoIA}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '6px',
                     backgroundColor: 'transparent',
@@ -286,10 +304,10 @@ export default function CheckinModal({ isOpen, onClose, punto, onSuccess }) {
                     color: 'var(--color-text-soft)', padding: '8px 14px',
                     borderRadius: '10px', fontSize: '12px',
                     fontWeight: '600',
-                    cursor: analizandoIA ? 'not-allowed' : 'pointer',
+                    cursor: cargandoModelo || analizandoIA ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {analizandoIA ? (
+                  {cargandoModelo || analizandoIA ? (
                     <>
                       <span style={{
                         width: '14px', height: '14px',
@@ -298,7 +316,7 @@ export default function CheckinModal({ isOpen, onClose, punto, onSuccess }) {
                         borderRadius: '50%', display: 'inline-block',
                         animation: 'rm-spin 0.8s linear infinite',
                       }} />
-                      {t('checkin.cargandoIA')}
+                      {cargandoModelo ? t('checkin.cargandoModelo') : t('checkin.cargandoIA')}
                     </>
                   ) : (
                     <>

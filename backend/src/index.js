@@ -8,7 +8,6 @@ import authRoutes from './routes/authRoutes.js'
 import checkinsRoutes from './routes/checkinsRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
 import usuariosRoutes from './routes/usuariosRoutes.js'
-import escanearRoutes from './routes/escanearRoutes.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -43,7 +42,6 @@ app.use('/api/auth', authRoutes)
 app.use('/api/checkins', checkinsRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/usuarios', usuariosRoutes)
-app.use('/api/escanear', escanearRoutes)
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`)
